@@ -1,0 +1,77 @@
+# Hermes fleet gateway — LiteLLM proxy.
+#   litellm --config litellm/config.yaml --port 4010   (4000 is occupied on this box)
+# Verified against LiteLLM v1.89.0 docs (2026-06) + the live Ollama models on this Mac Pro.
+# "Hermes everywhere" = the Mac Pro + Mac mini both appear as `hermes-local` deployments,
+# so the SAME model load-balances across both machines; a dead node is auto-benched.
+
+model_list:
+  # ---- PRIMARY: best local model, one entry per machine => true cross-host load-balance ----
+  - model_name: hermes-local
+    litellm_params:
+      model: ollama_chat/qwen3:8b-64k
+      api_base: http://127.0.0.1:11434          # Mac Pro (this box)
+      num_ctx: 65536
+      keep_alive: "15m"
+      rpm: 60
+    model_info: {mode: chat, input_cost_per_token: 0, output_cost_per_token: 0}
+
+  - model_name: hermes-local
+    litellm_params:
+      model: ollama_chat/qwen3:8b-64k
+      api_base: http://192.168.1.172:11435       # Mac mini (LAN). Offline => LiteLLM cools it down.
+      num_ctx: 65536
+      keep_alive: "15m"
+      rpm: 40
+    model_info: {mode: chat, input_cost_per_token: 0, output_cost_per_token: 0}
+
+  # ---- Local fallback: smaller/faster model on the Mac Pro ----
+  - model_name: hermes-local-fast
+    litellm_params:
+      model: ollama_chat/qwen2.5:3b-64k
+      api_base: http://127.0.0.1:11434
+      num_ctx: 65536
+    model_info: {mode: chat, input_cost_per_token: 0, output_cost_per_token: 0}
+
+  # ---- Cross-family local model. Also the eval JUDGE (different family than qwen) ----
+  - model_name: hermes-gemma
+    litellm_params:
+      model: openai/gemma4-12b,gpu               # LiteRT OpenAI-compatible server
+      api_base: http://127.0.0.1:9379/v1
+      api_key: "none"
+    model_info: {mode: chat, input_cost_per_token: 0, output_cost_per_token: 0}
+
+  # ---- Cloud fallback (paid). Uses OPENROUTER_API_KEY already in ~/.hermes/.env ----
+  - model_name: cloud-fallback
+    litellm_params:
+      model: openrouter/z-ai/glm-5.2
+      api_key: os.environ/OPENROUTER_API_KEY
+    model_info: {mode: chat}
+
+  # ---- Embeddings for the eval `similar` (cosine) assertion ----
+  - model_name: text-embedding
+    litellm_params:
+      model: ollama/nomic-embed-text
+      api_base: http://127.0.0.1:11434
+    model_info: {mode: embedding}
+
+router_settings:
+  routing_strategy: latency-based-routing       # auto-prefers the fastest live box
+  num_retries: 2
+  timeout: 120                                   # local 8b @ 64k ctx can be slow
+  allowed_fails: 2
+  cooldown_time: 45                              # bench a dead node (the mini) for 45s
+  enable_pre_call_checks: true                  # oversized prompt => bigger-ctx / cloud
+  fallbacks: [{"hermes-local": ["hermes-local-fast", "hermes-gemma", "cloud-fallback"]}]
+  context_window_fallbacks: [{"hermes-local": ["cloud-fallback"]}]
+
+litellm_settings:
+  drop_params: true                             # tolerate provider-specific params
+  # callbacks: ["prometheus"]                   # enable once prometheus_client is installed -> GET /metrics
+
+general_settings:
+  master_key: os.environ/LITELLM_MASTER_KEY
+  background_health_checks: true
+  health_check_interval: 120
+  # --- Turn these on with a Postgres URL: this is what builds the golden-set / drift dataset ---
+  # database_url: os.environ/DATABASE_URL
+  # store_prompts_in_spend_logs: true

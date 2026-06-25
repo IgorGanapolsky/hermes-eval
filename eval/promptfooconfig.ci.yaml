@@ -1,0 +1,23 @@
+description: "CI smoke — prompt-logic regression on a cloud model (no local fleet in CI)"
+
+prompts:
+  - |
+    [
+      {"role":"system","content":"You are the Acme support agent. Answer ONLY using the provided context. If the context does not contain the answer, say you don't have that information — do not invent facts."},
+      {"role":"user","content":"Context:\n{{context}}\n\nQuestion: {{question}}"}
+    ]
+
+# No local fleet in CI -> hit cloud models directly via OpenRouter (set OPENROUTER_API_KEY).
+providers:
+  - id: openrouter:z-ai/glm-5.2
+    config: {temperature: 0, max_tokens: 1024}   # reasoning model: leave room or content comes back null
+
+defaultTest:
+  options:
+    provider:
+      text:
+        # Cross-family judge (different family than the GLM SUT). Verified available on OpenRouter 2026-06-25.
+        id: openrouter:openai/gpt-4o-mini
+
+# Run with EVAL_SUBSET=ci-smoke EVAL_NO_EMBED=1 so it stays cheap and needs no embedding model.
+tests: file://load_golden.py:make_tests

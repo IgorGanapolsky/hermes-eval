@@ -1,0 +1,33 @@
+name: eval-gate
+
+# Tier-2 gate: a cheap prompt-logic smoke on a cloud model (the local Ollama fleet is not
+# reachable from GitHub-hosted runners). The authoritative model-drift gate is the LOCAL
+# runner on the Mac Pro (eval/run_gate.sh against the LiteLLM proxy), which posts the
+# `eval/golden-gate` commit status.
+
+on: [pull_request, workflow_dispatch]
+
+permissions:
+  contents: read
+  statuses: write
+
+jobs:
+  ci-smoke:
+    runs-on: ubuntu-latest
+    env:
+      OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+      LITELLM_MASTER_KEY: ci-not-used      # satisfies run_gate.sh; the CI config hits cloud directly
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      EVAL_SUBSET: ci-smoke
+      EVAL_NO_EMBED: "1"
+      EVAL_THRESHOLD: "0.8"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Run cloud smoke gate
+        run: bash eval/run_gate.sh promptfooconfig.ci.yaml

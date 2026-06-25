@@ -1,0 +1,5 @@
+# The gateway:
+litellm[proxy]
+# The eval harness is promptfoo (npm) — run via `npx promptfoo@latest`, no pip needed.
+# The Python helpers (synth_golden.py, validate_judge.py, compare_baseline.py, load_golden.py)
+# use ONLY the standard library, so they run with any Python 3.9+ and zero installs.

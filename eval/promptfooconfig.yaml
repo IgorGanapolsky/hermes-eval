@@ -1,0 +1,37 @@
+description: "Hermes RAG agent — golden-set eval gate (LLM-as-judge + RAG faithfulness + similarity)"
+
+# Chat prompt in promptfoo's JSON-messages form. {{context}}/{{question}} come from each golden row.
+prompts:
+  - |
+    [
+      {"role":"system","content":"You are the Acme support agent. Answer ONLY using the provided context. If the context does not contain the answer, say you don't have that information — do not invent facts."},
+      {"role":"user","content":"Context:\n{{context}}\n\nQuestion: {{question}}"}
+    ]
+
+# System under test: the Hermes local model, reached through the LiteLLM proxy.
+providers:
+  - id: openai:chat:hermes-local
+    label: "hermes-local (qwen3:8b-64k via LiteLLM)"
+    config:
+      apiBaseUrl: http://127.0.0.1:4010/v1
+      apiKey: sk-hermes-local-dev
+      temperature: 0
+
+defaultTest:
+  options:
+    provider:
+      # JUDGE = gemma (cross-family vs the qwen SUT -> mitigates self-preference bias).
+      text:
+        id: openai:chat:hermes-gemma
+        config:
+          apiBaseUrl: http://127.0.0.1:4010/v1
+          apiKey: sk-hermes-local-dev
+      # Embeddings for the `similar` (cosine) assertion.
+      embedding:
+        id: openai:embedding:text-embedding
+        config:
+          apiBaseUrl: http://127.0.0.1:4010/v1
+          apiKey: sk-hermes-local-dev
+
+# Tests are generated from golden.jsonl by the adapter (honors EVAL_SUBSET / EVAL_NO_EMBED).
+tests: file://load_golden.py:make_tests

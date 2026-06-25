@@ -1,0 +1,10 @@
+.env
+litellm/.env
+eval/results.json
+eval/baseline.json
+eval/golden.candidates.jsonl
+node_modules/
+__pycache__/
+*.pyc
+.promptfoo/
+proxy.log

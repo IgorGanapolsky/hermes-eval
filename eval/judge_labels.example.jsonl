@@ -1,0 +1,4 @@
+{"id":"jl-1","question":"How many API keys on the Starter plan?","context":"Starter plan: Up to 5 API keys per project.","candidate_answer":"The Starter plan allows up to 5 API keys per project.","human_verdict":"PASS"}
+{"id":"jl-2","question":"How many API keys on the Starter plan?","context":"Starter plan: Up to 5 API keys per project.","candidate_answer":"The Starter plan allows up to 25 API keys per project.","human_verdict":"FAIL"}
+{"id":"jl-3","question":"Does the Starter plan include SCIM SSO?","context":"Starter plan: Up to 5 API keys per project.","candidate_answer":"I don't have that information in the provided context.","human_verdict":"PASS"}
+{"id":"jl-4","question":"What is the Pro monthly request limit?","context":"Pro plan: 1,000,000 requests per month included.","candidate_answer":"Pro includes 1,000,000 requests per month.","human_verdict":"PASS"}
