@@ -1,0 +1,32 @@
+description: "Local-fleet eval — SUT is the local Hermes model via the LiteLLM proxy; cross-family CLOUD judge"
+
+prompts:
+  - |
+    [
+      {"role":"system","content":"You are the Acme support agent. Answer ONLY using the provided context. If the context does not contain the answer, say you don't have that information — do not invent facts."},
+      {"role":"user","content":"Context:\n{{context}}\n\nQuestion: {{question}}"}
+    ]
+
+# System under test: the local model (Hermes default qwen2.5:3b-64k), reached via the LiteLLM proxy.
+providers:
+  - id: openai:chat:hermes-local-fast
+    label: "qwen2.5:3b-64k via LiteLLM (LOCAL)"
+    config:
+      apiBaseUrl: http://127.0.0.1:4010/v1
+      apiKey: sk-hermes-local-dev
+      temperature: 0
+      max_tokens: 512
+
+defaultTest:
+  options:
+    provider:
+      # Cross-family judge in the cloud (reliable; LiteRT gemma judge is flaky/experimental).
+      text:
+        id: openrouter:openai/gpt-4o-mini
+      embedding:
+        id: openai:embedding:text-embedding
+        config:
+          apiBaseUrl: http://127.0.0.1:4010/v1
+          apiKey: sk-hermes-local-dev
+
+tests: file://load_golden.py:make_tests

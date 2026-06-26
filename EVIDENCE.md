@@ -21,7 +21,8 @@ Ollama on 127.0.0.1:11434, OpenRouter key from `~/.hermes/.env`.
 | 9 | Judge calibration script | ✅ PASS | n=4, agreement 1.0, **Cohen's κ=1.0** (small-n caveat) |
 | 10 | Eval gate PASSES legitimately | ✅ PASS | 3/3, 0 errors, exit 0 |
 | 11 | Eval gate BLOCKS on threshold | ✅ PASS | threshold 1.01 → exit 1 |
-| — | Local model end-to-end | ❌ BLOCKED | Ollama + LiteRT both time out (box at 12% free RAM) |
+| 13 | Local model end-to-end (SUT=qwen2.5:3b-64k via proxy) | ✅ PASS | after `brew services restart ollama`: gate 3/3, all asserts ok, **refusal correct** |
+| 12 | Gate discriminates (catches a hallucination) | ✅ PASS | faithful→1.00 PASS, hallucinated→0.00 FAIL |
 | — | Mac mini in the fleet | ❌ OFFLINE | `192.168.1.172` unreachable (ping fail) |
 
 ## Detailed runs
@@ -43,6 +44,28 @@ $ memory_pressure                                                               
 ```
 Conclusion: **every local model times out** (Ollama *and* LiteRT), so the Mac Pro cannot serve
 inference at the moment — which also means the Hermes fleet's default model is currently down.
+
+**Correction (re-check 2026-06-26):** I first blamed memory pressure (12% free). Re-tested with a 200s
+timeout: `qwen2.5:3b` STILL returns nothing and `ollama ps` is empty, while free RAM is now **55%**.
+So memory was NOT the cause — the Ollama daemon itself is wedged and needs a restart. My 12%-RAM
+attribution was wrong.
+
+**RESOLVED 2026-06-26:** `brew services restart ollama` (it's the brew launchd service
+`homebrew.mxcl.ollama`, not the desktop app) brought it back — `qwen2.5:3b-64k` generates again
+(~45s cold, fast warm); `nomic-embed-text` returns 768-dim vectors. The **local end-to-end gate then
+PASSED**: SUT=qwen2.5:3b-64k (local, via proxy), judge=gpt-4o-mini (cloud, cross-family),
+embeddings=local nomic → **3/3, 0 errors**. rag-0001/0002 grounded + correct (rubric+faithfulness+similar
+all ok); **rag-0006 correctly REFUSED** the unanswerable question. Local-model E2E gap CLOSED.
+
+### Gate discrimination (the proof that it catches bad answers, not just arithmetic)
+```
+$ promptfoo eval -c trap.yaml   (same judge gpt-4o-mini, same context-faithfulness assertion)
+  [PASS] FAITHFUL answer     -> Faithfulness 1.00 >= 0.6
+  [FAIL] HALLUCINATED answer -> Faithfulness 0.00 <  0.6   (unlimited keys / 24-7 phone support: not in context)
+  stats: {successes:1, failures:1, errors:0}
+```
+Note: GLM's chain-of-thought ("Thinking:...") leaked into the graded output; the judge scored
+faithfulness correctly anyway, but production should strip `reasoning_content` before grading.
 The LiteLLM proxy correctly surfaced this as connect-errors + retries + a 120s timeout in its log.
 
 ### Cloud path works (proves routing/auth/cost, and is the failover target)
