@@ -54,6 +54,15 @@ model_list:
       api_base: http://127.0.0.1:11434
     model_info: {mode: embedding}
 
+  # ---- OPTIONAL escalation tier: Sakana fugu-ultra. OFF by default (in NO fallback chain).
+  #      Invoke deliberately with model: "escalation" for genuinely hard coding/research.
+  #      $5/$30 per 1M + billed orchestration tokens + slow + EU-blocked. See fugu-ultra-evaluation memory.
+  - model_name: escalation
+    litellm_params:
+      model: openrouter/sakana/fugu-ultra
+      api_key: os.environ/OPENROUTER_API_KEY
+    model_info: {mode: chat}
+
 router_settings:
   routing_strategy: latency-based-routing       # auto-prefers the fastest live box
   num_retries: 2
@@ -66,7 +75,8 @@ router_settings:
 
 litellm_settings:
   drop_params: true                             # tolerate provider-specific params
-  # callbacks: ["prometheus"]                   # enable once prometheus_client is installed -> GET /metrics
+  callbacks: hermes_logger.proxy_handler_instance   # append every call to JSONL = golden-set / drift feed
+  # callbacks: ["prometheus"]                   # (needs prometheus_client) -> GET /metrics
 
 general_settings:
   master_key: os.environ/LITELLM_MASTER_KEY

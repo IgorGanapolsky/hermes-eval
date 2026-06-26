@@ -1,0 +1,241 @@
+{
+  "directed": false,
+  "multigraph": false,
+  "graph": {},
+  "nodes": [
+    {
+      "label": "EVIDENCE.md",
+      "file_type": "document",
+      "source_file": "EVIDENCE.md",
+      "source_location": "L1",
+      "_origin": "ast",
+      "id": "evidence",
+      "community": 1,
+      "norm_label": "evidence.md"
+    },
+    {
+      "label": "EVIDENCE \u2014 tested 2026-06-25 on the Mac Pro",
+      "file_type": "document",
+      "source_file": "EVIDENCE.md",
+      "source_location": "L1",
+      "_origin": "ast",
+      "id": "evidence_evidence_tested_2026_06_25_on_the_mac_pro",
+      "community": 1,
+      "norm_label": "evidence \u2014 tested 2026-06-25 on the mac pro"
+    },
+    {
+      "label": "Summary",
+      "file_type": "document",
+      "source_file": "EVIDENCE.md",
+      "source_location": "L9",
+      "_origin": "ast",
+      "id": "evidence_summary",
+      "community": 1,
+      "norm_label": "summary"
+    },
+    {
+      "label": "Detailed runs",
+      "file_type": "document",
+      "source_file": "EVIDENCE.md",
+      "source_location": "L28",
+      "_origin": "ast",
+      "id": "evidence_detailed_runs",
+      "community": 0,
+      "norm_label": "detailed runs"
+    },
+    {
+      "label": "Proxy serves the fleet (port 4010)",
+      "file_type": "document",
+      "source_file": "EVIDENCE.md",
+      "source_location": "L30",
+      "_origin": "ast",
+      "id": "evidence_proxy_serves_the_fleet_port_4010",
+      "community": 0,
+      "norm_label": "proxy serves the fleet (port 4010)"
+    },
+    {
+      "label": "HONEST NEGATIVE \u2014 local inference is wedged right now",
+      "file_type": "document",
+      "source_file": "EVIDENCE.md",
+      "source_location": "L36",
+      "_origin": "ast",
+      "id": "evidence_honest_negative_local_inference_is_wedged_right_now",
+      "community": 0,
+      "norm_label": "honest negative \u2014 local inference is wedged right now"
+    },
+    {
+      "label": "Gate discrimination (the proof that it catches bad answers, not just arithmetic)",
+      "file_type": "document",
+      "source_file": "EVIDENCE.md",
+      "source_location": "L60",
+      "_origin": "ast",
+      "id": "evidence_gate_discrimination_the_proof_that_it_catches_bad_answers_not_just_arithmetic",
+      "community": 0,
+      "norm_label": "gate discrimination (the proof that it catches bad answers, not just arithmetic)"
+    },
+    {
+      "label": "Cloud path works (proves routing/auth/cost, and is the failover target)",
+      "file_type": "document",
+      "source_file": "EVIDENCE.md",
+      "source_location": "L71",
+      "_origin": "ast",
+      "id": "evidence_cloud_path_works_proves_routing_auth_cost_and_is_the_failover_target",
+      "community": 0,
+      "norm_label": "cloud path works (proves routing/auth/cost, and is the failover target)"
+    },
+    {
+      "label": "Judge calibration",
+      "file_type": "document",
+      "source_file": "EVIDENCE.md",
+      "source_location": "L77",
+      "_origin": "ast",
+      "id": "evidence_judge_calibration",
+      "community": 0,
+      "norm_label": "judge calibration"
+    },
+    {
+      "label": "The gate \u2014 both directions (SUT=GLM-5.2, judge=gpt-4o-mini, cross-family)",
+      "file_type": "document",
+      "source_file": "EVIDENCE.md",
+      "source_location": "L86",
+      "_origin": "ast",
+      "id": "evidence_the_gate_both_directions_sut_glm_5_2_judge_gpt_4o_mini_cross_family",
+      "community": 0,
+      "norm_label": "the gate \u2014 both directions (sut=glm-5.2, judge=gpt-4o-mini, cross-family)"
+    },
+    {
+      "label": "Bugs found AND fixed during testing (this is why we test)",
+      "file_type": "document",
+      "source_file": "EVIDENCE.md",
+      "source_location": "L96",
+      "_origin": "ast",
+      "id": "evidence_bugs_found_and_fixed_during_testing_this_is_why_we_test",
+      "community": 1,
+      "norm_label": "bugs found and fixed during testing (this is why we test)"
+    },
+    {
+      "label": "Not yet proven (honest)",
+      "file_type": "document",
+      "source_file": "EVIDENCE.md",
+      "source_location": "L104",
+      "_origin": "ast",
+      "id": "evidence_not_yet_proven_honest",
+      "community": 1,
+      "norm_label": "not yet proven (honest)"
+    }
+  ],
+  "links": [
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "EVIDENCE.md",
+      "source_location": "L1",
+      "weight": 1.0,
+      "source": "evidence",
+      "target": "evidence_evidence_tested_2026_06_25_on_the_mac_pro",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "EVIDENCE.md",
+      "source_location": "L96",
+      "weight": 1.0,
+      "source": "evidence_evidence_tested_2026_06_25_on_the_mac_pro",
+      "target": "evidence_bugs_found_and_fixed_during_testing_this_is_why_we_test",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "EVIDENCE.md",
+      "source_location": "L28",
+      "weight": 1.0,
+      "source": "evidence_evidence_tested_2026_06_25_on_the_mac_pro",
+      "target": "evidence_detailed_runs",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "EVIDENCE.md",
+      "source_location": "L104",
+      "weight": 1.0,
+      "source": "evidence_evidence_tested_2026_06_25_on_the_mac_pro",
+      "target": "evidence_not_yet_proven_honest",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "EVIDENCE.md",
+      "source_location": "L9",
+      "weight": 1.0,
+      "source": "evidence_evidence_tested_2026_06_25_on_the_mac_pro",
+      "target": "evidence_summary",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "EVIDENCE.md",
+      "source_location": "L71",
+      "weight": 1.0,
+      "source": "evidence_detailed_runs",
+      "target": "evidence_cloud_path_works_proves_routing_auth_cost_and_is_the_failover_target",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "EVIDENCE.md",
+      "source_location": "L60",
+      "weight": 1.0,
+      "source": "evidence_detailed_runs",
+      "target": "evidence_gate_discrimination_the_proof_that_it_catches_bad_answers_not_just_arithmetic",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "EVIDENCE.md",
+      "source_location": "L36",
+      "weight": 1.0,
+      "source": "evidence_detailed_runs",
+      "target": "evidence_honest_negative_local_inference_is_wedged_right_now",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "EVIDENCE.md",
+      "source_location": "L77",
+      "weight": 1.0,
+      "source": "evidence_detailed_runs",
+      "target": "evidence_judge_calibration",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "EVIDENCE.md",
+      "source_location": "L30",
+      "weight": 1.0,
+      "source": "evidence_detailed_runs",
+      "target": "evidence_proxy_serves_the_fleet_port_4010",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "EVIDENCE.md",
+      "source_location": "L86",
+      "weight": 1.0,
+      "source": "evidence_detailed_runs",
+      "target": "evidence_the_gate_both_directions_sut_glm_5_2_judge_gpt_4o_mini_cross_family",
+      "confidence_score": 1.0
+    }
+  ],
+  "hyperedges": [],
+  "built_at_commit": "b4ea50a7045d458734159a2c2b88cec1d9009a63"
+}

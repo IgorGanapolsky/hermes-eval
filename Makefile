@@ -1,4 +1,4 @@
-.PHONY: proxy eval gate ci-gate synth validate-judge baseline view
+.PHONY: proxy eval gate ci-gate verify synth validate-judge baseline view
 LITELLM_MASTER_KEY ?= sk-hermes-local-dev
 export LITELLM_MASTER_KEY
 
@@ -13,6 +13,9 @@ gate:            ## run the gate (exits non-zero under threshold)
 
 ci-gate:         ## run the cloud smoke gate (OpenRouter)
 	EVAL_SUBSET=ci-smoke EVAL_NO_EMBED=1 bash eval/run_gate.sh promptfooconfig.ci.yaml
+
+verify:          ## one command: boot proxy -> run local gate -> tear down (CI-ready)
+	@bash scripts/verify.sh promptfooconfig.local.yaml
 
 synth:           ## bootstrap synthetic golden candidates from eval/corpus
 	cd eval && python3 synth_golden.py --docs corpus --out golden.candidates.jsonl

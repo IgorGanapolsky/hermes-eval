@@ -16,6 +16,8 @@ providers:
       apiBaseUrl: http://127.0.0.1:4010/v1
       apiKey: sk-hermes-local-dev
       temperature: 0
+    # strip reasoning-model chain-of-thought so it doesn't pollute grading
+    transform: 'String(output).replace(/<think>[\s\S]*?<\/think>/gi,"").replace(/^\s*Thinking:[\s\S]*?(\n\s*\n|$)/i,"").trim()'
 
 defaultTest:
   options:
