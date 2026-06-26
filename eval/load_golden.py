@@ -60,6 +60,9 @@ def make_tests():
                         "query": g["input"],
                         "context": ctx,
                         "reference": g.get("expected_output", ""),
+                        # the "why" behind the correct answer — calibrates the judge
+                        # ("teach your AI how you make decisions", HBR 2026-06-25)
+                        "rationale": g.get("rationale", ""),
                     },
                     "assert": asserts,
                 }

@@ -1,5 +1,10 @@
 # hermes-eval
 
+[![CI](https://github.com/IgorGanapolsky/hermes-eval/actions/workflows/ci.yml/badge.svg)](https://github.com/IgorGanapolsky/hermes-eval/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/IgorGanapolsky/hermes-eval/actions/workflows/codeql.yml/badge.svg)](https://github.com/IgorGanapolsky/hermes-eval/actions/workflows/codeql.yml)
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/IgorGanapolsky/hermes-eval/badge)](https://scorecard.dev/viewer/?uri=github.com/IgorGanapolsky/hermes-eval)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 A LiteLLM gateway + LLM evaluation pipeline for a self-hosted agent fleet ("Hermes")
 running local Ollama models across multiple machines (Mac Pro + Mac mini), with a
 cloud fallback.

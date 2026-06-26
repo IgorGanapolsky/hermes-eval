@@ -13,3 +13,4 @@ Ignore length, tone, politeness, and formatting. Judge only grounding and correc
 QUESTION: {{question}}
 CONTEXT: {{context}}
 REFERENCE_ANSWER: {{reference}}
+WHY THE REFERENCE IS CORRECT (decision rationale): {{rationale}}
