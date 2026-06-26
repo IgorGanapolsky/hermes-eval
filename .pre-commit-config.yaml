@@ -1,0 +1,21 @@
+# Run: uv run pre-commit install   (then hooks run on git commit)
+# Or one-shot: uv run pre-commit run --all-files
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.15.20
+    hooks:
+      - id: ruff-check        # hook id is ruff-check (not the deprecated `ruff`)
+        args: [--fix]         # fixer runs before the formatter
+      - id: ruff-format
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+      - id: check-yaml
+      - id: check-added-large-files
+      - id: check-merge-conflict
+
+ci:
+  autoupdate_schedule: monthly

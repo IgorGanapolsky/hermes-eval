@@ -6,7 +6,7 @@ proxy:           ## start the LiteLLM gateway on :4010 (4000 is taken on this bo
 	litellm --config litellm/config.yaml --port 4010
 
 eval:            ## run the full eval with a table
-	cd eval && npx --yes promptfoo@latest eval -c promptfooconfig.yaml
+	cd eval && npx --yes promptfoo@0.121.17 eval -c promptfooconfig.yaml
 
 gate:            ## run the gate (exits non-zero under threshold)
 	bash eval/run_gate.sh promptfooconfig.yaml

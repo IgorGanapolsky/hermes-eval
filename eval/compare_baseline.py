@@ -5,6 +5,7 @@ critical golden row (difficulty=hard or a refusal case) flips pass -> fail.
 
 Defensive about promptfoo's results.json shape, which varies across versions.
 """
+
 import argparse
 import json
 import os
@@ -13,7 +14,8 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 
 
 def load_results(path):
-    data = json.load(open(path))
+    with open(path) as fh:
+        data = json.load(fh)
     res = data.get("results", data)
     rows = res.get("results") or res.get("table", {}).get("body") or []
     out = {}
@@ -34,14 +36,15 @@ def critical_ids():
     gp = os.path.join(HERE, "golden.jsonl")
     if not os.path.exists(gp):
         return ids
-    for line in open(gp):
-        line = line.strip()
-        if not line:
-            continue
-        g = json.loads(line)
-        m = g.get("metadata", {})
-        if m.get("difficulty") == "hard" or not g.get("expected_answerable", True):
-            ids.add(g["id"])
+    with open(gp) as fh:
+        for line in fh:
+            line = line.strip()
+            if not line:
+                continue
+            g = json.loads(line)
+            m = g.get("metadata", {})
+            if m.get("difficulty") == "hard" or not g.get("expected_answerable", True):
+                ids.add(g["id"])
     return ids
 
 

@@ -1,33 +1,54 @@
 name: eval-gate
 
-# Tier-2 gate: a cheap prompt-logic smoke on a cloud model (the local Ollama fleet is not
-# reachable from GitHub-hosted runners). The authoritative model-drift gate is the LOCAL
-# runner on the Mac Pro (eval/run_gate.sh against the LiteLLM proxy), which posts the
-# `eval/golden-gate` commit status.
+# Cheap cloud smoke gate (the local Ollama fleet isn't reachable from GitHub runners).
+# The authoritative model-drift gate is the LOCAL runner on the Mac Pro (eval/run_gate.sh
+# against the LiteLLM proxy), which posts the `eval/golden-gate` commit status.
+# This job is NOT a required check (it spends cloud tokens); CI (lint+tests) is the gate.
 
-on: [pull_request, workflow_dispatch]
+on:
+  pull_request:
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
+      - "deploy/**"
+  workflow_dispatch:
 
 permissions:
   contents: read
   statuses: write
+
+concurrency:
+  group: eval-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   ci-smoke:
     runs-on: ubuntu-latest
     env:
       OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
-      LITELLM_MASTER_KEY: ci-not-used      # satisfies run_gate.sh; the CI config hits cloud directly
+      LITELLM_MASTER_KEY: ci-not-used
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       EVAL_SUBSET: ci-smoke
       EVAL_NO_EMBED: "1"
       EVAL_THRESHOLD: "0.8"
+      PROMPTFOO_VERSION: "0.121.17"
+      PROMPTFOO_DISABLE_TELEMETRY: "1"
+      PROMPTFOO_DISABLE_UPDATE: "1"
+      PROMPTFOO_CACHE_PATH: ${{ github.workspace }}/.promptfoo-cache
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
-          node-version: "20"
-      - uses: actions/setup-python@v5
+          persist-credentials: false
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: "22"
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
         with:
           python-version: "3.12"
-      - name: Run cloud smoke gate
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ${{ github.workspace }}/.promptfoo-cache
+          key: promptfoo-${{ hashFiles('eval/**') }}
+          restore-keys: promptfoo-
+      - name: Cloud smoke gate
         run: bash eval/run_gate.sh promptfooconfig.ci.yaml

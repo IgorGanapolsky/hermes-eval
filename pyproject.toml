@@ -1,0 +1,43 @@
+[project]
+name = "hermes-eval"
+version = "0"
+description = "LiteLLM gateway + LLM eval gate (golden set, LLM-as-judge, RAG faithfulness, CI gate) for a self-hosted Ollama agent fleet"
+requires-python = ">=3.11"
+dependencies = []
+# No [build-system] on purpose: this is a tools/scripts repo, not a published package,
+# so uv treats it as an application (manages the venv + uv.lock, never builds the repo).
+
+[dependency-groups]
+# PEP 735 groups (replaces requirements-dev.txt). `dev` is synced by default.
+# The eval scripts are stdlib-only; the LiteLLM proxy is installed separately as an
+# isolated CLI tool: `uv tool install 'litellm[proxy]'` (see litellm/start-proxy.sh).
+dev = [
+    "ruff>=0.15.20",
+    "pytest>=9.1",
+    "pytest-cov>=7.1",
+]
+
+[tool.ruff]
+line-length = 100
+src = ["eval", "litellm", "scripts", "tests"]
+
+[tool.ruff.lint]
+# E/W/F/I were ruff's core; UP/B/SIM/C4/RUF are the high-value, low-noise additions.
+select = ["E", "W", "F", "I", "UP", "B", "SIM", "C4", "RUF"]
+ignore = ["E501"]  # the formatter owns line wrapping
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+[tool.pytest.ini_options]
+minversion = "9.0"
+testpaths = ["tests"]
+addopts = "-ra -q"
+
+[tool.coverage.run]
+source = ["eval", "litellm"]
+branch = true

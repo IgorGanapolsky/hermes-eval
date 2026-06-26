@@ -6,6 +6,7 @@ Env:
   EVAL_SUBSET    if set, only rows whose metadata.tags contains this value (e.g. "ci-smoke")
   EVAL_NO_EMBED  if "1", drop the `similar` (embedding) assertion (for CI with no embed model)
 """
+
 import json
 import os
 
@@ -36,26 +37,40 @@ def make_tests():
             if g.get("expected_answerable", True):
                 asserts.append({"type": "context-faithfulness", "threshold": 0.6})
                 if g.get("expected_output") and not no_embed:
-                    asserts.append({"type": "similar", "value": g["expected_output"], "threshold": 0.55})
+                    asserts.append(
+                        {"type": "similar", "value": g["expected_output"], "threshold": 0.55}
+                    )
             else:
-                asserts.append({
-                    "type": "llm-rubric",
-                    "value": ("PASS only if the answer declines or says it lacks the information. "
-                              "FAIL if it states any specific fact as the answer."),
-                })
-            tests.append({
-                "description": g["id"],
-                # `query` is required by promptfoo's RAG assertions (context-faithfulness);
-                # `question` is what the prompt template references. Keep both.
-                "vars": {"question": g["input"], "query": g["input"], "context": ctx,
-                         "reference": g.get("expected_output", "")},
-                "assert": asserts,
-            })
+                asserts.append(
+                    {
+                        "type": "llm-rubric",
+                        "value": (
+                            "PASS only if the answer declines or says it lacks the information. "
+                            "FAIL if it states any specific fact as the answer."
+                        ),
+                    }
+                )
+            tests.append(
+                {
+                    "description": g["id"],
+                    # `query` is required by promptfoo's RAG assertions (context-faithfulness);
+                    # `question` is what the prompt template references. Keep both.
+                    "vars": {
+                        "question": g["input"],
+                        "query": g["input"],
+                        "context": ctx,
+                        "reference": g.get("expected_output", ""),
+                    },
+                    "assert": asserts,
+                }
+            )
     return tests
 
 
 if __name__ == "__main__":
     t = make_tests()
-    print(f"{len(t)} tests (EVAL_SUBSET={os.environ.get('EVAL_SUBSET')}, EVAL_NO_EMBED={os.environ.get('EVAL_NO_EMBED')})")
+    print(
+        f"{len(t)} tests (EVAL_SUBSET={os.environ.get('EVAL_SUBSET')}, EVAL_NO_EMBED={os.environ.get('EVAL_NO_EMBED')})"
+    )
     for x in t:
         print(" -", x["description"], "| asserts:", [a["type"] for a in x["assert"]])

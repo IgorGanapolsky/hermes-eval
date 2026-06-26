@@ -13,7 +13,7 @@ OUT="results.json"
 : "${LITELLM_MASTER_KEY:?set LITELLM_MASTER_KEY (the proxy Bearer key)}"
 
 echo "▶ eval config=$CONFIG threshold=$THRESHOLD subset=${EVAL_SUBSET:-<all>}"
-npx --yes promptfoo@latest eval -c "$CONFIG" -o "$OUT" --no-table || true
+npx --yes "promptfoo@${PROMPTFOO_VERSION:-0.121.17}" eval -c "$CONFIG" -o "$OUT" --no-table || true
 
 if [ ! -f "$OUT" ]; then echo "✖ no $OUT produced"; exit 1; fi
 

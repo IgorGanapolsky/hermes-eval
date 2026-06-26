@@ -1,0 +1,25 @@
+version: 2
+updates:
+  # Keep pinned action SHAs current (Dependabot bumps the SHA AND the `# vX.Y.Z` comment).
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    groups:
+      actions-all:
+        patterns: ["*"]
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "ci"
+
+  # Python dev tooling (ruff/pytest) via uv (reads pyproject.toml + uv.lock).
+  - package-ecosystem: "uv"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    groups:
+      python-minor-patch:
+        update-types: ["minor", "patch"]
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "deps"
