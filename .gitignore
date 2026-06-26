@@ -8,3 +8,6 @@ __pycache__/
 *.pyc
 .promptfoo/
 proxy.log
+
+# local code-graph tool artifacts (not part of this project)
+graphify-out/
