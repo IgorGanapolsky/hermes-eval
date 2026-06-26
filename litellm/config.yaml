@@ -70,7 +70,7 @@ router_settings:
   allowed_fails: 2
   cooldown_time: 45                              # bench a dead node (the mini) for 45s
   enable_pre_call_checks: true                  # oversized prompt => bigger-ctx / cloud
-  fallbacks: [{"hermes-local": ["hermes-local-fast", "hermes-gemma", "cloud-fallback"]}]
+  fallbacks: [{"hermes-local": ["hermes-local-fast", "cloud-fallback"]}]   # gemma (LiteRT) is down/experimental → kept out of the auto-fallback path
   context_window_fallbacks: [{"hermes-local": ["cloud-fallback"]}]
 
 litellm_settings:
@@ -80,7 +80,7 @@ litellm_settings:
 
 general_settings:
   master_key: os.environ/LITELLM_MASTER_KEY
-  background_health_checks: true
+  background_health_checks: false   # off: don't waste ~28s probing the down LiteRT/offline mini; on-demand cooldown still protects fallbacks
   health_check_interval: 120
   # --- Turn these on with a Postgres URL: this is what builds the golden-set / drift dataset ---
   # database_url: os.environ/DATABASE_URL

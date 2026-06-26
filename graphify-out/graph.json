@@ -4,14 +4,216 @@
   "graph": {},
   "nodes": [
     {
+      "label": "hermes_logger.py",
+      "file_type": "code",
+      "source_file": "litellm/hermes_logger.py",
+      "source_location": "L1",
+      "_origin": "ast",
+      "id": "litellm_hermes_logger",
+      "community": 5,
+      "norm_label": "hermes_logger.py"
+    },
+    {
+      "label": "HermesJSONLLogger",
+      "file_type": "code",
+      "source_file": "litellm/hermes_logger.py",
+      "source_location": "L22",
+      "_origin": "ast",
+      "id": "litellm_hermes_logger_hermesjsonllogger",
+      "community": 2,
+      "norm_label": "hermesjsonllogger"
+    },
+    {
+      "label": "CustomLogger",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "_origin": "ast",
+      "id": "customlogger",
+      "community": 2,
+      "norm_label": "customlogger"
+    },
+    {
+      "label": ".log_success_event()",
+      "file_type": "code",
+      "source_file": "litellm/hermes_logger.py",
+      "source_location": "L23",
+      "_origin": "ast",
+      "id": "litellm_hermes_logger_hermesjsonllogger_log_success_event",
+      "community": 2,
+      "norm_label": ".log_success_event()"
+    },
+    {
+      "label": ".async_log_success_event()",
+      "file_type": "code",
+      "source_file": "litellm/hermes_logger.py",
+      "source_location": "L26",
+      "_origin": "ast",
+      "id": "litellm_hermes_logger_hermesjsonllogger_async_log_success_event",
+      "community": 2,
+      "norm_label": ".async_log_success_event()"
+    },
+    {
+      "label": ".log_failure_event()",
+      "file_type": "code",
+      "source_file": "litellm/hermes_logger.py",
+      "source_location": "L29",
+      "_origin": "ast",
+      "id": "litellm_hermes_logger_hermesjsonllogger_log_failure_event",
+      "community": 2,
+      "norm_label": ".log_failure_event()"
+    },
+    {
+      "label": ".async_log_failure_event()",
+      "file_type": "code",
+      "source_file": "litellm/hermes_logger.py",
+      "source_location": "L32",
+      "_origin": "ast",
+      "id": "litellm_hermes_logger_hermesjsonllogger_async_log_failure_event",
+      "community": 2,
+      "norm_label": ".async_log_failure_event()"
+    },
+    {
+      "label": "._write()",
+      "file_type": "code",
+      "source_file": "litellm/hermes_logger.py",
+      "source_location": "L35",
+      "_origin": "ast",
+      "id": "litellm_hermes_logger_hermesjsonllogger_write",
+      "community": 2,
+      "norm_label": "._write()"
+    },
+    {
+      "label": "LiteLLM custom callback: append every call to a JSONL file.  This is the gateway",
+      "file_type": "rationale",
+      "source_file": "litellm/hermes_logger.py",
+      "source_location": "L1",
+      "_origin": "ast",
+      "id": "litellm_hermes_logger_rationale_1",
+      "community": 5,
+      "norm_label": "litellm custom callback: append every call to a jsonl file.  this is the gateway"
+    },
+    {
+      "label": "start-proxy.sh",
+      "file_type": "code",
+      "source_file": "litellm/start-proxy.sh",
+      "source_location": "L1",
+      "metadata": {
+        "language": "bash",
+        "kind": "file"
+      },
+      "_origin": "ast",
+      "id": "litellm_start_proxy",
+      "community": 3,
+      "norm_label": "start-proxy.sh"
+    },
+    {
+      "label": "start-proxy.sh script",
+      "file_type": "code",
+      "source_file": "litellm/start-proxy.sh",
+      "source_location": "L1",
+      "metadata": {
+        "language": "bash",
+        "kind": "bash_entrypoint"
+      },
+      "_origin": "ast",
+      "id": "users_igorganapolsky_workspace_git_igor_hermes_eval_litellm_start_proxy_sh__entry",
+      "community": 3,
+      "norm_label": "start-proxy.sh script"
+    },
+    {
+      "label": "LITELLM_MASTER_KEY",
+      "file_type": "code",
+      "source_file": "litellm/start-proxy.sh",
+      "source_location": "L5",
+      "metadata": {
+        "language": "bash",
+        "kind": "code"
+      },
+      "_origin": "ast",
+      "id": "litellm_start_proxy_litellm_master_key",
+      "community": 3,
+      "norm_label": "litellm_master_key"
+    },
+    {
+      "label": "HERMES_LOG_PATH",
+      "file_type": "code",
+      "source_file": "litellm/start-proxy.sh",
+      "source_location": "L9",
+      "metadata": {
+        "language": "bash",
+        "kind": "code"
+      },
+      "_origin": "ast",
+      "id": "litellm_start_proxy_hermes_log_path",
+      "community": 3,
+      "norm_label": "hermes_log_path"
+    },
+    {
+      "label": "verify.sh",
+      "file_type": "code",
+      "source_file": "scripts/verify.sh",
+      "source_location": "L1",
+      "metadata": {
+        "language": "bash",
+        "kind": "file"
+      },
+      "_origin": "ast",
+      "id": "scripts_verify",
+      "community": 4,
+      "norm_label": "verify.sh"
+    },
+    {
+      "label": "verify.sh script",
+      "file_type": "code",
+      "source_file": "scripts/verify.sh",
+      "source_location": "L1",
+      "metadata": {
+        "language": "bash",
+        "kind": "bash_entrypoint"
+      },
+      "_origin": "ast",
+      "id": "users_igorganapolsky_workspace_git_igor_hermes_eval_scripts_verify_sh__entry",
+      "community": 4,
+      "norm_label": "verify.sh script"
+    },
+    {
+      "label": "LITELLM_MASTER_KEY",
+      "file_type": "code",
+      "source_file": "scripts/verify.sh",
+      "source_location": "L8",
+      "metadata": {
+        "language": "bash",
+        "kind": "code"
+      },
+      "_origin": "ast",
+      "id": "scripts_verify_litellm_master_key",
+      "community": 4,
+      "norm_label": "litellm_master_key"
+    },
+    {
+      "label": "cleanup()",
+      "file_type": "code",
+      "source_file": "scripts/verify.sh",
+      "source_location": "L21",
+      "metadata": {
+        "language": "bash",
+        "kind": "bash_function"
+      },
+      "_origin": "ast",
+      "id": "scripts_verify_cleanup",
+      "community": 4,
+      "norm_label": "cleanup()"
+    },
+    {
       "label": "EVIDENCE.md",
       "file_type": "document",
       "source_file": "EVIDENCE.md",
       "source_location": "L1",
       "_origin": "ast",
-      "id": "evidence",
       "community": 1,
-      "norm_label": "evidence.md"
+      "norm_label": "evidence.md",
+      "id": "evidence"
     },
     {
       "label": "EVIDENCE \u2014 tested 2026-06-25 on the Mac Pro",
@@ -19,9 +221,9 @@
       "source_file": "EVIDENCE.md",
       "source_location": "L1",
       "_origin": "ast",
-      "id": "evidence_evidence_tested_2026_06_25_on_the_mac_pro",
       "community": 1,
-      "norm_label": "evidence \u2014 tested 2026-06-25 on the mac pro"
+      "norm_label": "evidence \u2014 tested 2026-06-25 on the mac pro",
+      "id": "evidence_evidence_tested_2026_06_25_on_the_mac_pro"
     },
     {
       "label": "Summary",
@@ -29,9 +231,9 @@
       "source_file": "EVIDENCE.md",
       "source_location": "L9",
       "_origin": "ast",
-      "id": "evidence_summary",
       "community": 1,
-      "norm_label": "summary"
+      "norm_label": "summary",
+      "id": "evidence_summary"
     },
     {
       "label": "Detailed runs",
@@ -39,9 +241,9 @@
       "source_file": "EVIDENCE.md",
       "source_location": "L28",
       "_origin": "ast",
-      "id": "evidence_detailed_runs",
       "community": 0,
-      "norm_label": "detailed runs"
+      "norm_label": "detailed runs",
+      "id": "evidence_detailed_runs"
     },
     {
       "label": "Proxy serves the fleet (port 4010)",
@@ -49,9 +251,9 @@
       "source_file": "EVIDENCE.md",
       "source_location": "L30",
       "_origin": "ast",
-      "id": "evidence_proxy_serves_the_fleet_port_4010",
       "community": 0,
-      "norm_label": "proxy serves the fleet (port 4010)"
+      "norm_label": "proxy serves the fleet (port 4010)",
+      "id": "evidence_proxy_serves_the_fleet_port_4010"
     },
     {
       "label": "HONEST NEGATIVE \u2014 local inference is wedged right now",
@@ -59,9 +261,9 @@
       "source_file": "EVIDENCE.md",
       "source_location": "L36",
       "_origin": "ast",
-      "id": "evidence_honest_negative_local_inference_is_wedged_right_now",
       "community": 0,
-      "norm_label": "honest negative \u2014 local inference is wedged right now"
+      "norm_label": "honest negative \u2014 local inference is wedged right now",
+      "id": "evidence_honest_negative_local_inference_is_wedged_right_now"
     },
     {
       "label": "Gate discrimination (the proof that it catches bad answers, not just arithmetic)",
@@ -69,9 +271,9 @@
       "source_file": "EVIDENCE.md",
       "source_location": "L60",
       "_origin": "ast",
-      "id": "evidence_gate_discrimination_the_proof_that_it_catches_bad_answers_not_just_arithmetic",
       "community": 0,
-      "norm_label": "gate discrimination (the proof that it catches bad answers, not just arithmetic)"
+      "norm_label": "gate discrimination (the proof that it catches bad answers, not just arithmetic)",
+      "id": "evidence_gate_discrimination_the_proof_that_it_catches_bad_answers_not_just_arithmetic"
     },
     {
       "label": "Cloud path works (proves routing/auth/cost, and is the failover target)",
@@ -79,9 +281,9 @@
       "source_file": "EVIDENCE.md",
       "source_location": "L71",
       "_origin": "ast",
-      "id": "evidence_cloud_path_works_proves_routing_auth_cost_and_is_the_failover_target",
       "community": 0,
-      "norm_label": "cloud path works (proves routing/auth/cost, and is the failover target)"
+      "norm_label": "cloud path works (proves routing/auth/cost, and is the failover target)",
+      "id": "evidence_cloud_path_works_proves_routing_auth_cost_and_is_the_failover_target"
     },
     {
       "label": "Judge calibration",
@@ -89,9 +291,9 @@
       "source_file": "EVIDENCE.md",
       "source_location": "L77",
       "_origin": "ast",
-      "id": "evidence_judge_calibration",
       "community": 0,
-      "norm_label": "judge calibration"
+      "norm_label": "judge calibration",
+      "id": "evidence_judge_calibration"
     },
     {
       "label": "The gate \u2014 both directions (SUT=GLM-5.2, judge=gpt-4o-mini, cross-family)",
@@ -99,9 +301,9 @@
       "source_file": "EVIDENCE.md",
       "source_location": "L86",
       "_origin": "ast",
-      "id": "evidence_the_gate_both_directions_sut_glm_5_2_judge_gpt_4o_mini_cross_family",
       "community": 0,
-      "norm_label": "the gate \u2014 both directions (sut=glm-5.2, judge=gpt-4o-mini, cross-family)"
+      "norm_label": "the gate \u2014 both directions (sut=glm-5.2, judge=gpt-4o-mini, cross-family)",
+      "id": "evidence_the_gate_both_directions_sut_glm_5_2_judge_gpt_4o_mini_cross_family"
     },
     {
       "label": "Bugs found AND fixed during testing (this is why we test)",
@@ -109,9 +311,9 @@
       "source_file": "EVIDENCE.md",
       "source_location": "L96",
       "_origin": "ast",
-      "id": "evidence_bugs_found_and_fixed_during_testing_this_is_why_we_test",
       "community": 1,
-      "norm_label": "bugs found and fixed during testing (this is why we test)"
+      "norm_label": "bugs found and fixed during testing (this is why we test)",
+      "id": "evidence_bugs_found_and_fixed_during_testing_this_is_why_we_test"
     },
     {
       "label": "Not yet proven (honest)",
@@ -119,21 +321,205 @@
       "source_file": "EVIDENCE.md",
       "source_location": "L104",
       "_origin": "ast",
-      "id": "evidence_not_yet_proven_honest",
       "community": 1,
-      "norm_label": "not yet proven (honest)"
+      "norm_label": "not yet proven (honest)",
+      "id": "evidence_not_yet_proven_honest"
     }
   ],
   "links": [
     {
       "relation": "contains",
       "confidence": "EXTRACTED",
+      "source_file": "litellm/hermes_logger.py",
+      "source_location": "L22",
+      "weight": 1.0,
+      "source": "litellm_hermes_logger",
+      "target": "litellm_hermes_logger_hermesjsonllogger",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "litellm/hermes_logger.py",
+      "source_location": "L1",
+      "weight": 1.0,
+      "source": "litellm_hermes_logger_rationale_1",
+      "target": "litellm_hermes_logger",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "inherits",
+      "confidence": "EXTRACTED",
+      "source_file": "litellm/hermes_logger.py",
+      "source_location": "L22",
+      "weight": 1.0,
+      "source": "litellm_hermes_logger_hermesjsonllogger",
+      "target": "customlogger",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "litellm/hermes_logger.py",
+      "source_location": "L32",
+      "weight": 1.0,
+      "source": "litellm_hermes_logger_hermesjsonllogger",
+      "target": "litellm_hermes_logger_hermesjsonllogger_async_log_failure_event",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "litellm/hermes_logger.py",
+      "source_location": "L26",
+      "weight": 1.0,
+      "source": "litellm_hermes_logger_hermesjsonllogger",
+      "target": "litellm_hermes_logger_hermesjsonllogger_async_log_success_event",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "litellm/hermes_logger.py",
+      "source_location": "L29",
+      "weight": 1.0,
+      "source": "litellm_hermes_logger_hermesjsonllogger",
+      "target": "litellm_hermes_logger_hermesjsonllogger_log_failure_event",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "litellm/hermes_logger.py",
+      "source_location": "L23",
+      "weight": 1.0,
+      "source": "litellm_hermes_logger_hermesjsonllogger",
+      "target": "litellm_hermes_logger_hermesjsonllogger_log_success_event",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "litellm/hermes_logger.py",
+      "source_location": "L35",
+      "weight": 1.0,
+      "source": "litellm_hermes_logger_hermesjsonllogger",
+      "target": "litellm_hermes_logger_hermesjsonllogger_write",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "litellm/hermes_logger.py",
+      "source_location": "L24",
+      "weight": 1.0,
+      "source": "litellm_hermes_logger_hermesjsonllogger_log_success_event",
+      "target": "litellm_hermes_logger_hermesjsonllogger_write",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "litellm/hermes_logger.py",
+      "source_location": "L27",
+      "weight": 1.0,
+      "source": "litellm_hermes_logger_hermesjsonllogger_async_log_success_event",
+      "target": "litellm_hermes_logger_hermesjsonllogger_write",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "litellm/hermes_logger.py",
+      "source_location": "L30",
+      "weight": 1.0,
+      "source": "litellm_hermes_logger_hermesjsonllogger_log_failure_event",
+      "target": "litellm_hermes_logger_hermesjsonllogger_write",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "litellm/hermes_logger.py",
+      "source_location": "L33",
+      "weight": 1.0,
+      "source": "litellm_hermes_logger_hermesjsonllogger_async_log_failure_event",
+      "target": "litellm_hermes_logger_hermesjsonllogger_write",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "defines",
+      "confidence": "EXTRACTED",
+      "source_file": "litellm/start-proxy.sh",
+      "source_location": "L9",
+      "weight": 1.0,
+      "source": "litellm_start_proxy",
+      "target": "litellm_start_proxy_hermes_log_path",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "defines",
+      "confidence": "EXTRACTED",
+      "source_file": "litellm/start-proxy.sh",
+      "source_location": "L5",
+      "weight": 1.0,
+      "source": "litellm_start_proxy",
+      "target": "litellm_start_proxy_litellm_master_key",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "litellm/start-proxy.sh",
+      "source_location": "L1",
+      "weight": 1.0,
+      "source": "litellm_start_proxy",
+      "target": "users_igorganapolsky_workspace_git_igor_hermes_eval_litellm_start_proxy_sh__entry",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "defines",
+      "confidence": "EXTRACTED",
+      "source_file": "scripts/verify.sh",
+      "source_location": "L21",
+      "weight": 1.0,
+      "source": "scripts_verify",
+      "target": "scripts_verify_cleanup",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "defines",
+      "confidence": "EXTRACTED",
+      "source_file": "scripts/verify.sh",
+      "source_location": "L8",
+      "weight": 1.0,
+      "source": "scripts_verify",
+      "target": "scripts_verify_litellm_master_key",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "scripts/verify.sh",
+      "source_location": "L1",
+      "weight": 1.0,
+      "source": "scripts_verify",
+      "target": "users_igorganapolsky_workspace_git_igor_hermes_eval_scripts_verify_sh__entry",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
       "source_file": "EVIDENCE.md",
       "source_location": "L1",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "evidence",
-      "target": "evidence_evidence_tested_2026_06_25_on_the_mac_pro",
-      "confidence_score": 1.0
+      "target": "evidence_evidence_tested_2026_06_25_on_the_mac_pro"
     },
     {
       "relation": "contains",
@@ -141,9 +527,9 @@
       "source_file": "EVIDENCE.md",
       "source_location": "L96",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "evidence_evidence_tested_2026_06_25_on_the_mac_pro",
-      "target": "evidence_bugs_found_and_fixed_during_testing_this_is_why_we_test",
-      "confidence_score": 1.0
+      "target": "evidence_bugs_found_and_fixed_during_testing_this_is_why_we_test"
     },
     {
       "relation": "contains",
@@ -151,9 +537,9 @@
       "source_file": "EVIDENCE.md",
       "source_location": "L28",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "evidence_evidence_tested_2026_06_25_on_the_mac_pro",
-      "target": "evidence_detailed_runs",
-      "confidence_score": 1.0
+      "target": "evidence_detailed_runs"
     },
     {
       "relation": "contains",
@@ -161,9 +547,9 @@
       "source_file": "EVIDENCE.md",
       "source_location": "L104",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "evidence_evidence_tested_2026_06_25_on_the_mac_pro",
-      "target": "evidence_not_yet_proven_honest",
-      "confidence_score": 1.0
+      "target": "evidence_not_yet_proven_honest"
     },
     {
       "relation": "contains",
@@ -171,9 +557,9 @@
       "source_file": "EVIDENCE.md",
       "source_location": "L9",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "evidence_evidence_tested_2026_06_25_on_the_mac_pro",
-      "target": "evidence_summary",
-      "confidence_score": 1.0
+      "target": "evidence_summary"
     },
     {
       "relation": "contains",
@@ -181,9 +567,9 @@
       "source_file": "EVIDENCE.md",
       "source_location": "L71",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "evidence_detailed_runs",
-      "target": "evidence_cloud_path_works_proves_routing_auth_cost_and_is_the_failover_target",
-      "confidence_score": 1.0
+      "target": "evidence_cloud_path_works_proves_routing_auth_cost_and_is_the_failover_target"
     },
     {
       "relation": "contains",
@@ -191,9 +577,9 @@
       "source_file": "EVIDENCE.md",
       "source_location": "L60",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "evidence_detailed_runs",
-      "target": "evidence_gate_discrimination_the_proof_that_it_catches_bad_answers_not_just_arithmetic",
-      "confidence_score": 1.0
+      "target": "evidence_gate_discrimination_the_proof_that_it_catches_bad_answers_not_just_arithmetic"
     },
     {
       "relation": "contains",
@@ -201,9 +587,9 @@
       "source_file": "EVIDENCE.md",
       "source_location": "L36",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "evidence_detailed_runs",
-      "target": "evidence_honest_negative_local_inference_is_wedged_right_now",
-      "confidence_score": 1.0
+      "target": "evidence_honest_negative_local_inference_is_wedged_right_now"
     },
     {
       "relation": "contains",
@@ -211,9 +597,9 @@
       "source_file": "EVIDENCE.md",
       "source_location": "L77",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "evidence_detailed_runs",
-      "target": "evidence_judge_calibration",
-      "confidence_score": 1.0
+      "target": "evidence_judge_calibration"
     },
     {
       "relation": "contains",
@@ -221,9 +607,9 @@
       "source_file": "EVIDENCE.md",
       "source_location": "L30",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "evidence_detailed_runs",
-      "target": "evidence_proxy_serves_the_fleet_port_4010",
-      "confidence_score": 1.0
+      "target": "evidence_proxy_serves_the_fleet_port_4010"
     },
     {
       "relation": "contains",
@@ -231,11 +617,11 @@
       "source_file": "EVIDENCE.md",
       "source_location": "L86",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "evidence_detailed_runs",
-      "target": "evidence_the_gate_both_directions_sut_glm_5_2_judge_gpt_4o_mini_cross_family",
-      "confidence_score": 1.0
+      "target": "evidence_the_gate_both_directions_sut_glm_5_2_judge_gpt_4o_mini_cross_family"
     }
   ],
   "hyperedges": [],
-  "built_at_commit": "b4ea50a7045d458734159a2c2b88cec1d9009a63"
+  "built_at_commit": "834149341da75ffbf7c991f4ff4be71240ae291c"
 }

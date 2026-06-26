@@ -50,13 +50,13 @@
     "semantic_hash": ""
   },
   "eval/promptfooconfig.local.yaml": {
-    "mtime": 1782489672.8299234,
-    "ast_hash": "dc7e43cd3f7f5c9fd778bb9e1f397e88",
+    "mtime": 1782490388.6721945,
+    "ast_hash": "c06a6e3fd20d28113029ffea3698f5ce",
     "semantic_hash": ""
   },
   "eval/promptfooconfig.yaml": {
-    "mtime": 1782420547.7454338,
-    "ast_hash": "20f0f49a9511f3c499a9a0f3f5130e2e",
+    "mtime": 1782490386.378852,
+    "ast_hash": "efc7dd518781c0ff22e7c9fec208a95f",
     "semantic_hash": ""
   },
   "eval/rubric.txt": {
@@ -65,13 +65,28 @@
     "semantic_hash": ""
   },
   "litellm/config.yaml": {
-    "mtime": 1782420554.2591057,
-    "ast_hash": "b8d4a9d70f4a2e7ff8392f5d23f5a13c",
+    "mtime": 1782490233.237058,
+    "ast_hash": "ecc98a8e08c8669c7a100659a96bae81",
     "semantic_hash": ""
   },
   "requirements.txt": {
     "mtime": 1782420156.958606,
     "ast_hash": "b2576f9d94db9c360a95cd0c69731717",
+    "semantic_hash": ""
+  },
+  "litellm/hermes_logger.py": {
+    "mtime": 1782490383.9667795,
+    "ast_hash": "db16b591d92e944ae679cb4215330519",
+    "semantic_hash": ""
+  },
+  "litellm/start-proxy.sh": {
+    "mtime": 1782490227.0818794,
+    "ast_hash": "ed26d9fd717d5b843493bb1316446602",
+    "semantic_hash": ""
+  },
+  "scripts/verify.sh": {
+    "mtime": 1782490394.3814242,
+    "ast_hash": "47c97dc6881ceed219625e3cb92db4a2",
     "semantic_hash": ""
   }
 }

@@ -106,3 +106,17 @@ $ EVAL_THRESHOLD=1.01 bash eval/run_gate.sh promptfooconfig.ci.yaml
 - The mini as a load-balanced peer: it's offline; config wires it, LiteLLM benches it.
 - The GitHub Actions workflow: YAML validated; not executed (needs a PR + the `OPENROUTER_API_KEY` secret).
 - A real judge κ and a real golden set sized by per-slice CI.
+
+## High-ROI improvements — tested 2026-06-26
+
+| Improvement | Result | Evidence |
+|---|---|---|
+| JSONL logging callback (gateway→golden-set feed) | ✅ | cache-miss probe + Hermes calls land in `traffic.jsonl`; 0 health-check pings leaked |
+| `escalation` model (fugu-ultra, OFF by default) | ✅ | `/v1/models` lists `escalation`; in no fallback chain; not invoked (cost/latency by design) |
+| Reasoning-strip transform | ✅ | unit-tested: strips qwen `<think>…</think>` and GLM `Thinking:…`; clean text unchanged |
+| `make verify` (one command) | ✅ | boot→gate→teardown → GATE PASSED, exit 0 |
+| Persistent proxy (launchd) | ✅ | `com.igor.hermes-litellm` loaded (KeepAlive); liveliness OK after `kickstart -k` |
+| **Live Hermes repointed at the proxy** | ✅ | default=`custom:litellm-gateway`; `hermes -z` (no flag) → "ROUTED"; logged `qwen2.5:3b-64k` 11158 tok success; direct-Ollama fallback kept; backup `~/.hermes/config.yaml.bak.hermes-eval-20260626` |
+| GitHub repo (public) | ✅ | https://github.com/IgorGanapolsky/hermes-eval — pushed after a clean secret scan |
+
+Known minor: LiteRT gemma judge still down (separate server, unrelated to Ollama); background health checks disabled to stop wasteful 28s probes + log noise. To revert the Hermes repoint: `cp ~/.hermes/config.yaml.bak.hermes-eval-20260626 ~/.hermes/config.yaml`.
