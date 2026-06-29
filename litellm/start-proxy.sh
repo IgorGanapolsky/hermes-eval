@@ -2,7 +2,6 @@
 # Start the LiteLLM gateway with fleet env. Used manually, by `make verify`, and by the launchd service.
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
-export LITELLM_MASTER_KEY="${LITELLM_MASTER_KEY:-sk-hermes-local-dev}"
 if [ -z "${OPENROUTER_API_KEY:-}" ] && [ -f "$HOME/.hermes/.env" ]; then
   export OPENROUTER_API_KEY="$(grep '^OPENROUTER_API_KEY=' "$HOME/.hermes/.env" | cut -d= -f2-)"
 fi

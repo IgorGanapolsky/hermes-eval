@@ -18,7 +18,7 @@ model_list:
   - model_name: hermes-local
     litellm_params:
       model: ollama_chat/qwen3:8b-64k
-      api_base: http://192.168.1.172:11435       # Mac mini (LAN). Offline => LiteLLM cools it down.
+      api_base: http://100.94.135.78:11436       # Mac mini over Tailscale (LAN-agnostic; survives subnet/cellular changes). Offline => LiteLLM cools it down.
       num_ctx: 65536
       keep_alive: "15m"
       rpm: 40
@@ -30,6 +30,17 @@ model_list:
       model: ollama_chat/qwen2.5:3b-64k
       api_base: http://127.0.0.1:11434
       num_ctx: 65536
+    model_info: {mode: chat, input_cost_per_token: 0, output_cost_per_token: 0}
+
+  # ---- Mini-only HEAVY coder model: 14B won't fit the Mac Pro's RAM budget, but the mini has it.
+  #      Reached over Tailscale. Opt-in (model: "hermes-coder") for hard coding; NOT in the auto-fallback. ----
+  - model_name: hermes-coder
+    litellm_params:
+      model: ollama_chat/qwen2.5-coder:14b-64k
+      api_base: http://100.94.135.78:11436        # Mac mini over Tailscale
+      num_ctx: 65536
+      keep_alive: "10m"
+      rpm: 20
     model_info: {mode: chat, input_cost_per_token: 0, output_cost_per_token: 0}
 
   # ---- Cross-family local model. Also the eval JUDGE (different family than qwen) ----
@@ -79,7 +90,6 @@ litellm_settings:
   # callbacks: ["prometheus"]                   # (needs prometheus_client) -> GET /metrics
 
 general_settings:
-  master_key: os.environ/LITELLM_MASTER_KEY
   background_health_checks: false   # off: don't waste ~28s probing the down LiteRT/offline mini; on-demand cooldown still protects fallbacks
   health_check_interval: 120
   # --- Turn these on with a Postgres URL: this is what builds the golden-set / drift dataset ---
