@@ -93,8 +93,8 @@ router_settings:
   allowed_fails: 2
   cooldown_time: 45                              # bench a dead node (the mini) for 45s
   enable_pre_call_checks: true                  # oversized prompt => bigger-ctx / cloud
-  fallbacks: [{"glm-coding": ["hermes-local", "cloud-fallback"]}, {"hermes-local": ["hermes-local-fast", "cloud-fallback"]}]   # glm subscription 429 → local qwen3 → OpenRouter GLM
-  context_window_fallbacks: [{"hermes-local": ["cloud-fallback"]}]
+  fallbacks: [{"glm-coding": ["hermes-local", "cloud-fallback"]}, {"hermes-local": ["hermes-local-fast", "glm-coding", "cloud-fallback"]}]   # local → subscription GLM → OpenRouter only as paid backup
+  context_window_fallbacks: [{"hermes-local": ["glm-coding", "cloud-fallback"]}]
 
 litellm_settings:
   drop_params: true                             # tolerate provider-specific params
