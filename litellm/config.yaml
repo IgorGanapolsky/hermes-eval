@@ -53,7 +53,17 @@ model_list:
       api_key: "none"
     model_info: {mode: chat, input_cost_per_token: 0, output_cost_per_token: 0}
 
-  # ---- Cloud fallback (paid). Uses OPENROUTER_API_KEY already in ~/.hermes/.env ----
+  # ---- PRIMARY CLOUD: GLM-5.2 via the z.ai Coding Plan SUBSCRIPTION (flat monthly, already paid).
+  #      Igor pays for this monthly — use it, not per-token OpenRouter. Rate-capped (historic 429s)
+  #      => falls back to local qwen3, then OpenRouter GLM. GLM-5.2 reasons heavily; give it tokens. ----
+  - model_name: glm-coding
+    litellm_params:
+      model: openai/glm-5.2
+      api_base: https://api.z.ai/api/coding/paas/v4
+      api_key: os.environ/Z_AI_API_KEY
+    model_info: {mode: chat}
+
+  # ---- Cloud fallback (paid PER-TOKEN). Only when the subscription is unreachable/quota-capped ----
   - model_name: cloud-fallback
     litellm_params:
       model: openrouter/z-ai/glm-5.2
@@ -83,7 +93,7 @@ router_settings:
   allowed_fails: 2
   cooldown_time: 45                              # bench a dead node (the mini) for 45s
   enable_pre_call_checks: true                  # oversized prompt => bigger-ctx / cloud
-  fallbacks: [{"hermes-local": ["hermes-local-fast", "cloud-fallback"]}]   # gemma (LiteRT) is down/experimental → kept out of the auto-fallback path
+  fallbacks: [{"glm-coding": ["hermes-local", "cloud-fallback"]}, {"hermes-local": ["hermes-local-fast", "cloud-fallback"]}]   # glm subscription 429 → local qwen3 → OpenRouter GLM
   context_window_fallbacks: [{"hermes-local": ["cloud-fallback"]}]
 
 litellm_settings:
