@@ -88,7 +88,13 @@ make gate            # or: EVAL_THRESHOLD=0.85 bash eval/run_gate.sh
 
 Bootstrapping when you have no data yet (cold start): `eval/synth_golden.py` generates
 synthetic candidates from `eval/corpus/`, **for human review** — they are not golden until
-curated. Replace them with mined production traces as the LiteLLM logs fill up.
+curated. Once real traffic exists, `eval/mine_failures.py` closes the flywheel loop: it
+scans the proxy's `traffic.jsonl` for failure-shaped calls (provider errors, empty
+responses) and emits them as golden-set candidates, so every production failure becomes
+a permanent regression test after curation.
+
+Live fleet topology, model map, and routing gotchas are maintained in [FLEET.md](FLEET.md)
+(agent-maintained wiki — update it in the same commit as any routing change).
 
 ## LLM-as-judge: the failure modes this guards against
 
