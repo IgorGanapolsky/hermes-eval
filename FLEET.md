@@ -51,6 +51,9 @@ Chains are config-declared; behaviorally fire-drilled only for local-node death,
    new lines after. `ollama ps` empty during a run = cloud was used.
 6. New env key ⇒ add an `export` line in `start-proxy.sh` + `launchctl kickstart -k
    gui/$UID/com.igor.hermes-litellm`.
+7. **Hermes v0.18.0 `doctor` shows ✗ on `model.provider 'custom:litellm-gateway'`** —
+   false positive (its validator mangles custom-provider slugs). Routing through the
+   gateway works; trust the traffic-log proof, not this ✗. Verified 2026-07-02 on both nodes.
 
 ## Quota notes (2026-07-02)
 
@@ -62,6 +65,6 @@ Chains are config-declared; behaviorally fire-drilled only for local-node death,
 
 | Date | Change |
 |---|---|
-| 2026-07-02 | Added `glm-turbo`; registered true ctx windows; proven end-to-end from both nodes (`9c25c48`). Mini Hermes update v0.16.0→current in progress (canary before Pro). |
+| 2026-07-02 | Added `glm-turbo`; registered true ctx windows; proven end-to-end from both nodes (`9c25c48`). Both nodes updated to Hermes v0.18.0 (mini canary first, then Pro); routing re-proven post-update on each. |
 | 2026-06-30 | z.ai Coding Plan subscription made cloud primary over OpenRouter. |
 | 2026-06-26 | Fleet default routed through this proxy; every call logs to traffic.jsonl. |
