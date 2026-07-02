@@ -14,7 +14,7 @@ and **updates it in the same commit as any routing/topology change**.
 
 | Node | Tailscale IP | Role |
 |---|---|---|
-| Mac Pro | `100.87.85.85` | Runs the LiteLLM proxy `*:4010` (launchd `com.igor.hermes-litellm` → `litellm/start-proxy.sh`). Primary Hermes agent (v0.17.0). Local Ollama `:11434`. |
+| Mac Pro | `100.87.85.85` | Runs the LiteLLM proxy `*:4010` (launchd `com.igor.hermes-litellm` → `litellm/start-proxy.sh`). Primary Hermes agent (v0.18.0). Local Ollama `:11434`. |
 | Mac mini | `100.94.135.78` | Fallback/secondary. Ollama exposed to tailnet via forwarder `:11436 → 127.0.0.1:11434` (launchd `com.igor.ollama-tailnet`). 24GB — chronically RAM-pressured; don't co-locate heavy work. |
 
 Both machines' Hermes use `provider: custom:litellm-gateway` and send a model NAME;
