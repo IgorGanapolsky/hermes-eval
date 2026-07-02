@@ -14,7 +14,7 @@ model_list:
       think: false                              # qwen3 thinks by default → empties the content field via the proxy; disable it
       keep_alive: "15m"
       rpm: 60
-    model_info: {mode: chat, input_cost_per_token: 0, output_cost_per_token: 0}
+    model_info: {mode: chat, input_cost_per_token: 0, output_cost_per_token: 0, max_input_tokens: 65536, max_output_tokens: 8192}   # register ctx so enable_pre_call_checks doesn't raise "model isn't mapped yet" (unmapped :64k tag) and bench this fallback
 
   - model_name: hermes-local
     litellm_params:
@@ -24,7 +24,7 @@ model_list:
       think: false                              # see Mac Pro entry — disable qwen3 thinking so content isn't empty via the proxy
       keep_alive: "15m"
       rpm: 40
-    model_info: {mode: chat, input_cost_per_token: 0, output_cost_per_token: 0}
+    model_info: {mode: chat, input_cost_per_token: 0, output_cost_per_token: 0, max_input_tokens: 65536, max_output_tokens: 8192}   # register ctx so pre_call_checks doesn't raise "isn't mapped yet" and bench this fallback
 
   # ---- Local fallback: smaller/faster model on the Mac Pro ----
   - model_name: hermes-local-fast
@@ -61,7 +61,16 @@ model_list:
       model: openai/glm-5.2
       api_base: https://api.z.ai/api/coding/paas/v4
       api_key: os.environ/Z_AI_API_KEY
-    model_info: {mode: chat}
+    model_info: {mode: chat, max_input_tokens: 1000000, max_output_tokens: 128000}   # 1M ctx / 128K out per docs.z.ai — lets pre_call_checks route oversized prompts here
+
+  # ---- Same subscription, lighter/faster model: GLM-5-Turbo (200K ctx). Verified live on the
+  #      coding endpoint 2026-07-02. Also reasons heavily — give it ≥300 max_tokens. ----
+  - model_name: glm-turbo
+    litellm_params:
+      model: openai/glm-5-turbo
+      api_base: https://api.z.ai/api/coding/paas/v4
+      api_key: os.environ/Z_AI_API_KEY
+    model_info: {mode: chat, max_input_tokens: 200000, max_output_tokens: 128000}
 
   # ---- Cloud fallback (paid PER-TOKEN). Only when the subscription is unreachable/quota-capped ----
   - model_name: cloud-fallback
@@ -93,8 +102,8 @@ router_settings:
   allowed_fails: 2
   cooldown_time: 45                              # bench a dead node (the mini) for 45s
   enable_pre_call_checks: true                  # oversized prompt => bigger-ctx / cloud
-  fallbacks: [{"glm-coding": ["hermes-local", "cloud-fallback"]}, {"hermes-local": ["hermes-local-fast", "glm-coding", "cloud-fallback"]}]   # local → subscription GLM → OpenRouter only as paid backup
-  context_window_fallbacks: [{"hermes-local": ["glm-coding", "cloud-fallback"]}]
+  fallbacks: [{"glm-coding": ["hermes-local", "cloud-fallback"]}, {"glm-turbo": ["hermes-local", "cloud-fallback"]}, {"hermes-local": ["hermes-local-fast", "glm-coding", "cloud-fallback"]}]   # subscription GLM → local → OpenRouter only as paid backup; a z.ai 429 likely caps BOTH glm routes, so turbo falls to local not glm-coding
+  context_window_fallbacks: [{"hermes-local": ["glm-coding", "cloud-fallback"]}, {"glm-turbo": ["glm-coding"]}]   # >200K prompt on turbo => escalate to 1M-ctx glm-5.2
 
 litellm_settings:
   drop_params: true                             # tolerate provider-specific params
