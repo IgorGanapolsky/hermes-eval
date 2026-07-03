@@ -55,10 +55,15 @@ Chains are config-declared; behaviorally fire-drilled only for local-node death,
    false positive (its validator mangles custom-provider slugs). Routing through the
    gateway works; trust the traffic-log proof, not this ✗. Verified 2026-07-02 on both nodes.
 
-## Quota notes (2026-07-02)
+## Quota notes (2026-07-03)
 
+- **Off-peak benefit (official devpack docs, through end of Sept 2026): GLM-5.2 and GLM-5-Turbo
+  consume only 1× quota during off-peak hours** — off-peak = outside 14:00–18:00 UTC+8
+  (= outside ~2–6am US Eastern). This is model-level on the Coding Plan, so it DOES cover the
+  fleet's API traffic — and the fleet's normal US-daytime usage is entirely off-peak. Avoid
+  scheduling heavy batch jobs into the 2–6am ET peak window.
 - z.ai campaign through 2026-07-31: 0.67x metering ("1.5x quota") — **confirmed only inside
-  the ZCode desktop client**; whether plain coding-endpoint API traffic gets it is UNVERIFIED.
+  the ZCode desktop client**; account-console confirmation for API traffic still pending login.
 - ZCode itself: GUI-only (no CLI/headless) → not integrable into this headless fleet; skipped.
 
 ## Version log
