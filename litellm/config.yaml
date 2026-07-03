@@ -104,6 +104,7 @@ router_settings:
   enable_pre_call_checks: true                  # oversized prompt => bigger-ctx / cloud
   fallbacks: [{"glm-coding": ["hermes-local", "cloud-fallback"]}, {"glm-turbo": ["hermes-local", "cloud-fallback"]}, {"hermes-local": ["hermes-local-fast", "glm-coding", "cloud-fallback"]}]   # subscription GLM → local → OpenRouter only as paid backup; a z.ai 429 likely caps BOTH glm routes, so turbo falls to local not glm-coding
   context_window_fallbacks: [{"hermes-local": ["glm-coding", "cloud-fallback"]}, {"glm-turbo": ["glm-coding"]}]   # >200K prompt on turbo => escalate to 1M-ctx glm-5.2
+  content_policy_fallbacks: [{"glm-coding": ["hermes-local"]}, {"glm-turbo": ["hermes-local"]}]   # provider content-policy refusal => local model (separate trigger class per LiteLLM reliability docs)
 
 litellm_settings:
   drop_params: true                             # tolerate provider-specific params
