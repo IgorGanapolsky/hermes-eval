@@ -94,6 +94,7 @@ Chains are config-declared; behaviorally fire-drilled only for local-node death,
 
 | Date | Change |
 |---|---|
+| 2026-07-03 | content_policy_fallbacks; traffic-log rotation (`com.igor.hermes-traffic-rotate`); health-endpoint guidance; Headscale evaluated → rejected; z.ai off-peak quota noted. |
 | 2026-07-02 | Added `glm-turbo`; registered true ctx windows; proven end-to-end from both nodes (`9c25c48`). Both nodes updated to Hermes v0.18.0 (mini canary first, then Pro); routing re-proven post-update on each. |
 | 2026-06-30 | z.ai Coding Plan subscription made cloud primary over OpenRouter. |
 | 2026-06-26 | Fleet default routed through this proxy; every call logs to traffic.jsonl. |
