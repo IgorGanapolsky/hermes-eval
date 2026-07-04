@@ -61,6 +61,7 @@ model_list:
       model: openai/glm-5.2
       api_base: https://api.z.ai/api/coding/paas/v4
       api_key: os.environ/Z_AI_API_KEY
+      timeout: 45                               # bound a blackholed/slow z.ai so failover to local is fast (was unbounded=120s router default x retries ≈ minutes). 45s covers normal GLM reasoning; a stuck call fails over to hermes-local. Verified 2026-07-04.
     model_info: {mode: chat, max_input_tokens: 1000000, max_output_tokens: 128000}   # 1M ctx / 128K out per docs.z.ai — lets pre_call_checks route oversized prompts here
 
   # ---- Same subscription, lighter/faster model: GLM-5-Turbo (200K ctx). Verified live on the
@@ -70,6 +71,7 @@ model_list:
       model: openai/glm-5-turbo
       api_base: https://api.z.ai/api/coding/paas/v4
       api_key: os.environ/Z_AI_API_KEY
+      timeout: 45                               # same fast-failover bound as glm-coding
     model_info: {mode: chat, max_input_tokens: 200000, max_output_tokens: 128000}
 
   # ---- Cloud fallback (paid PER-TOKEN). Only when the subscription is unreachable/quota-capped ----
@@ -97,8 +99,8 @@ model_list:
 
 router_settings:
   routing_strategy: latency-based-routing       # auto-prefers the fastest live box
-  num_retries: 2
-  timeout: 120                                   # local 8b @ 64k ctx can be slow
+  num_retries: 1                                 # 1 retry (was 2): a down subscription endpoint won't recover on retry, so fewer retries => faster failover to local. Transient blips still get one retry.
+  timeout: 120                                   # local 8b @ 64k ctx can be slow (cloud GLM models set their own 45s timeout for fast failover)
   allowed_fails: 2
   cooldown_time: 45                              # bench a dead node (the mini) for 45s
   enable_pre_call_checks: true                  # oversized prompt => bigger-ctx / cloud
