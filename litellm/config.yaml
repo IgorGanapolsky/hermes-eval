@@ -87,7 +87,8 @@ model_list:
     litellm_params:
       model: openrouter/z-ai/glm-5.2
       api_key: os.environ/OPENROUTER_API_KEY
-    model_info: {mode: chat}
+      max_tokens: 4096                          # low OpenRouter balance: Hermes asks for 65536 out-tokens and OpenRouter 402s the whole call ("can only afford ~6K") — cap so the LAST-RESORT route actually serves instead of dying (seen 2026-07-07 during z.ai quota exhaustion)
+    model_info: {mode: chat, max_output_tokens: 4096}
 
   # ---- Embeddings for the eval `similar` (cosine) assertion ----
   - model_name: text-embedding
@@ -112,7 +113,7 @@ router_settings:
   allowed_fails: 2
   cooldown_time: 45                              # bench a dead node (the mini) for 45s
   enable_pre_call_checks: true                  # oversized prompt => bigger-ctx / cloud
-  fallbacks: [{"glm-coding": ["omlx-local", "hermes-local", "cloud-fallback"]}, {"glm-turbo": ["omlx-local", "hermes-local", "cloud-fallback"]}, {"hermes-local": ["hermes-local-fast", "omlx-local", "glm-coding", "cloud-fallback"]}]   # subscription GLM → local → OpenRouter only as paid backup; a z.ai 429 likely caps BOTH glm routes, so turbo falls to local not glm-coding
+  fallbacks: [{"glm-coding": ["hermes-local", "cloud-fallback"]}, {"glm-turbo": ["hermes-local", "cloud-fallback"]}, {"hermes-local": ["hermes-local-fast", "omlx-local", "glm-coding", "cloud-fallback"]}]   # subscription GLM → local → OpenRouter only as paid backup; a z.ai 429 likely caps BOTH glm routes, so turbo falls to local not glm-coding
   context_window_fallbacks: [{"hermes-local": ["glm-coding", "cloud-fallback"]}, {"glm-turbo": ["glm-coding"]}]   # >200K prompt on turbo => escalate to 1M-ctx glm-5.2
   content_policy_fallbacks: [{"glm-coding": ["hermes-local"]}, {"glm-turbo": ["hermes-local"]}]   # provider content-policy refusal => local model (separate trigger class per LiteLLM reliability docs)
 

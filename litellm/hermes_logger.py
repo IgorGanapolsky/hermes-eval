@@ -26,6 +26,27 @@ LOG_PATH = os.environ.get(
 # LiteLLM background health-check ping prompts — not real traffic for the golden set.
 _HEALTH_CHECK_PROMPTS = {"", "hey, how's it going?"}
 
+# OpenRouter (per-token, low balance) 402s any request whose max_tokens exceeds what the
+# remaining credits can afford — Hermes asks for 65536, killing the LAST-RESORT fallback
+# exactly when it's needed (z.ai quota exhaustion, 2026-07-07). Deployment-level clamp:
+# config litellm_params.max_tokens does NOT override a request's own value.
+OPENROUTER_MAX_TOKENS = int(os.environ.get("HERMES_OPENROUTER_MAX_TOKENS", "4096"))
+
+
+def clamp_openrouter_max_tokens(kwargs, cap=None):
+    """Clamp max_tokens for openrouter/* deployments so a low credit balance can't 402
+    the emergency route. Pure helper (unit-testable); mutates and returns kwargs."""
+    cap = OPENROUTER_MAX_TOKENS if cap is None else cap
+    model = str(kwargs.get("model") or "")
+    lp = kwargs.get("litellm_params") or {}
+    dep_model = str(lp.get("model") or "") if isinstance(lp, dict) else ""
+    if not (model.startswith("openrouter/") or dep_model.startswith("openrouter/")):
+        return kwargs
+    mt = kwargs.get("max_tokens")
+    if not isinstance(mt, int) or mt > cap:
+        kwargs["max_tokens"] = cap
+    return kwargs
+
 
 def is_health_check(messages):
     """True for a LiteLLM background health-check ping (single short canned message)."""
@@ -60,6 +81,11 @@ def build_record(kwargs, response_obj, latency_s, status):
 
 
 class HermesJSONLLogger(CustomLogger):
+    async def async_pre_call_deployment_hook(self, kwargs, call_type):
+        with contextlib.suppress(Exception):  # never break a request because of the clamp
+            return clamp_openrouter_max_tokens(kwargs)
+        return kwargs
+
     def log_success_event(self, kwargs, response_obj, start_time, end_time):
         self._write(kwargs, response_obj, start_time, end_time, "success")
 
