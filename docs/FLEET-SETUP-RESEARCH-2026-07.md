@@ -61,9 +61,13 @@ weekly quota dies; schedule heavy autonomous runs off-peak.
    ($12.60 promo). https://docs.z.ai/devpack/overview
 9. **Local tier refresh:** Qwen3.5-9B is the best ≤14B tool-caller in llm-stats' BFCL-V4
    coverage (0.661; steep cliff below 9B: 4B=0.503, 2B=0.436) — medium confidence (sparse
-   13-model coverage). Piloting: pulled qwen3.5:9b into Ollama 2026-07-07; smoke-test native
-   tool-calls before swapping into hermes-local. The claim that qwen3:8b beats qwen3:14b on
-   BFCL was REFUTED 0-3 — don't cite it. https://llm-stats.com/benchmarks/bfcl-v4
+   13-model coverage). Piloted 2026-07-07: pulled qwen3.5:9b (6.6GB) and smoke-tested 5x
+   (native tool_call emission, multi-turn chaining with a tool result, no text-leak, no
+   spurious calls): 5/5 — but incumbent qwen3:8b-64k ALSO scored 5/5. Tie at probe
+   granularity; swap deferred to a real agent-loop A/B in a calm window (don't change the
+   live fallback's brain mid-incident). Model stays pulled; the swap is a one-line config
+   change. The claim that qwen3:8b beats qwen3:14b on BFCL was REFUTED 0-3 — don't cite it.
+   https://llm-stats.com/benchmarks/bfcl-v4
 
 ### DeepSeek-V4 (evaluated separately, same day — Igor's unsloth link)
 - **Local: skip.** V4-Flash GGUF needs 92GB RAM at 1-bit (162GB at 4-bit); no fit on any
