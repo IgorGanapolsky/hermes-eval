@@ -113,7 +113,7 @@ router_settings:
   allowed_fails: 2
   cooldown_time: 45                              # bench a dead node (the mini) for 45s
   enable_pre_call_checks: true                  # oversized prompt => bigger-ctx / cloud
-  fallbacks: [{"glm-coding": ["hermes-local", "cloud-fallback"]}, {"glm-turbo": ["hermes-local", "cloud-fallback"]}, {"hermes-local": ["hermes-local-fast", "omlx-local", "glm-coding", "cloud-fallback"]}]   # subscription GLM → local → OpenRouter only as paid backup; a z.ai 429 likely caps BOTH glm routes, so turbo falls to local not glm-coding
+  fallbacks: [{"glm-coding": ["hermes-local", "cloud-fallback"]}, {"glm-turbo": ["hermes-local", "cloud-fallback"]}, {"hermes-local": ["glm-coding", "cloud-fallback"]}]   # subscription GLM → local → OpenRouter only as paid backup; a z.ai 429 likely caps BOTH glm routes, so turbo falls to local not glm-coding. NO sub-8B models in the silent chain (2026-07-07: qwen2.5:3b hallucinated tool-call JSON as text during the z.ai outage cascade) — hermes-local-fast/omlx-local stay opt-in by name only.
   context_window_fallbacks: [{"hermes-local": ["glm-coding", "cloud-fallback"]}, {"glm-turbo": ["glm-coding"]}]   # >200K prompt on turbo => escalate to 1M-ctx glm-5.2
   content_policy_fallbacks: [{"glm-coding": ["hermes-local"]}, {"glm-turbo": ["hermes-local"]}]   # provider content-policy refusal => local model (separate trigger class per LiteLLM reliability docs)
 
