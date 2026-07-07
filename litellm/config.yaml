@@ -32,7 +32,15 @@ model_list:
       model: ollama_chat/qwen2.5:3b-64k
       api_base: http://127.0.0.1:11434
       num_ctx: 65536
-    model_info: {mode: chat, input_cost_per_token: 0, output_cost_per_token: 0}
+    model_info: {mode: chat, input_cost_per_token: 0, output_cost_per_token: 0, max_input_tokens: 65536, max_output_tokens: 8192}
+
+  - model_name: omlx-local
+    litellm_params:
+      model: openai/Llama-3.2-3B-Instruct-4bit
+      api_base: http://127.0.0.1:8011/v1
+      api_key: omlx
+    model_info: {mode: chat, input_cost_per_token: 0, output_cost_per_token: 0, max_input_tokens: 131072, max_output_tokens: 8192}
+
 
   # ---- Mini-only HEAVY coder model: 14B won't fit the Mac Pro's RAM budget, but the mini has it.
   #      Reached over Tailscale. Opt-in (model: "hermes-coder") for hard coding; NOT in the auto-fallback. ----
@@ -43,7 +51,7 @@ model_list:
       num_ctx: 65536
       keep_alive: "10m"
       rpm: 20
-    model_info: {mode: chat, input_cost_per_token: 0, output_cost_per_token: 0}
+    model_info: {mode: chat, input_cost_per_token: 0, output_cost_per_token: 0, max_input_tokens: 65536, max_output_tokens: 8192}
 
   # ---- Cross-family local model. Also the eval JUDGE (different family than qwen) ----
   - model_name: hermes-gemma
@@ -51,7 +59,7 @@ model_list:
       model: openai/gemma4-12b,gpu               # LiteRT OpenAI-compatible server
       api_base: http://127.0.0.1:9379/v1
       api_key: "none"
-    model_info: {mode: chat, input_cost_per_token: 0, output_cost_per_token: 0}
+    model_info: {mode: chat, input_cost_per_token: 0, output_cost_per_token: 0, max_input_tokens: 32768, max_output_tokens: 8192}
 
   # ---- PRIMARY CLOUD: GLM-5.2 via the z.ai Coding Plan SUBSCRIPTION (flat monthly, already paid).
   #      Igor pays for this monthly — use it, not per-token OpenRouter. Rate-capped (historic 429s)
@@ -104,7 +112,7 @@ router_settings:
   allowed_fails: 2
   cooldown_time: 45                              # bench a dead node (the mini) for 45s
   enable_pre_call_checks: true                  # oversized prompt => bigger-ctx / cloud
-  fallbacks: [{"glm-coding": ["hermes-local", "cloud-fallback"]}, {"glm-turbo": ["hermes-local", "cloud-fallback"]}, {"hermes-local": ["hermes-local-fast", "glm-coding", "cloud-fallback"]}]   # subscription GLM → local → OpenRouter only as paid backup; a z.ai 429 likely caps BOTH glm routes, so turbo falls to local not glm-coding
+  fallbacks: [{"glm-coding": ["omlx-local", "hermes-local", "cloud-fallback"]}, {"glm-turbo": ["omlx-local", "hermes-local", "cloud-fallback"]}, {"hermes-local": ["hermes-local-fast", "omlx-local", "glm-coding", "cloud-fallback"]}]   # subscription GLM → local → OpenRouter only as paid backup; a z.ai 429 likely caps BOTH glm routes, so turbo falls to local not glm-coding
   context_window_fallbacks: [{"hermes-local": ["glm-coding", "cloud-fallback"]}, {"glm-turbo": ["glm-coding"]}]   # >200K prompt on turbo => escalate to 1M-ctx glm-5.2
   content_policy_fallbacks: [{"glm-coding": ["hermes-local"]}, {"glm-turbo": ["hermes-local"]}]   # provider content-policy refusal => local model (separate trigger class per LiteLLM reliability docs)
 
