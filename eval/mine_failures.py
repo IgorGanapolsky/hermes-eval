@@ -8,15 +8,22 @@ Like synth_golden.py, output is NOT golden until a human reviews it
 with the judge (optimizer/evaluator decoupling).
 
 Failure classes mined:
-  - status_failure : the proxy recorded status != "success" (provider error, timeout)
-  - empty_response : call "succeeded" but returned no content (e.g. reasoning ate the
-                     max_tokens budget, or qwen3 `think` regression)
+  - status_failure  : the proxy recorded status != "success" (provider error, timeout)
+  - truncated_empty : succeeded but empty because reasoning hit the length limit
+                      (empty_kind="truncated") — the real defect the GLM max_tokens floor targets
+  - empty_response  : succeeded but empty for some other/unknown reason (empty_kind="empty",
+                      or a legacy record logged before empty_kind existed)
+
+Legitimate tool-call responses (empty content by design, empty_kind="tool_call") are
+NOT mined — they are healthy, and flagging them polluted the candidate set with the
+tool-calling workhorse's normal output.
 
 Usage: python3 mine_failures.py [--traffic ~/.hermes/litellm-logs/traffic.jsonl]
                                 [--out golden.candidates.jsonl] [--max 200]
 """
 
 import argparse
+import collections
 import hashlib
 import json
 import os
@@ -33,11 +40,21 @@ def last_user_message(messages):
 
 
 def classify(rec):
+    """Failure class for a traffic record, or None if it's healthy.
+
+    Uses the empty_kind field (emitted since 2026-07-08) to separate a real empty-content
+    defect from a legitimate tool-call (empty by design). Records logged before empty_kind
+    existed fall back to the conservative 'empty_response' so nothing is silently dropped."""
     if rec.get("status") != "success":
         return "status_failure"
-    if not (rec.get("response") or "").strip():
-        return "empty_response"
-    return None
+    if (rec.get("response") or "").strip():
+        return None  # has content — healthy
+    kind = rec.get("empty_kind")
+    if kind == "tool_call":
+        return None  # empty by design (payload in tool_calls) — NOT a failure
+    if kind == "truncated":
+        return "truncated_empty"  # reasoning ate the budget — the real defect
+    return "empty_response"  # empty_kind == "empty", or a legacy record without the field
 
 
 def main():
@@ -47,7 +64,7 @@ def main():
     ap.add_argument("--max", type=int, default=200)
     args = ap.parse_args()
 
-    seen, candidates, totals = set(), [], {"status_failure": 0, "empty_response": 0, "scanned": 0}
+    seen, candidates, totals = set(), [], collections.defaultdict(int)
     with open(args.traffic) as f:
         for line in f:
             try:
@@ -57,6 +74,9 @@ def main():
             totals["scanned"] += 1
             failure_class = classify(rec)
             if not failure_class:
+                # count healthy tool-call empties that we correctly no longer flag
+                if not (rec.get("response") or "").strip() and rec.get("empty_kind") == "tool_call":
+                    totals["tool_call_excluded"] += 1
                 continue
             totals[failure_class] += 1
             user_input = last_user_message(rec.get("messages"))
@@ -96,7 +116,9 @@ def main():
 
     print(
         f"scanned={totals['scanned']} status_failure={totals['status_failure']} "
-        f"empty_response={totals['empty_response']} unique_candidates={len(candidates)} -> {args.out}"
+        f"truncated_empty={totals['truncated_empty']} empty_response={totals['empty_response']} "
+        f"| tool_call_excluded={totals['tool_call_excluded']} (healthy, not mined) "
+        f"unique_candidates={len(candidates)} -> {args.out}"
     )
     print("Candidates need human review before promotion to golden.jsonl (needs_review=true).")
 

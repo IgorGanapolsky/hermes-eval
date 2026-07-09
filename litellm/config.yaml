@@ -32,7 +32,15 @@ model_list:
       model: ollama_chat/qwen2.5:3b-64k
       api_base: http://127.0.0.1:11434
       num_ctx: 65536
-    model_info: {mode: chat, input_cost_per_token: 0, output_cost_per_token: 0}
+    model_info: {mode: chat, input_cost_per_token: 0, output_cost_per_token: 0, max_input_tokens: 65536, max_output_tokens: 8192}
+
+  - model_name: omlx-local
+    litellm_params:
+      model: openai/Llama-3.2-3B-Instruct-4bit
+      api_base: http://127.0.0.1:8011/v1
+      api_key: omlx
+    model_info: {mode: chat, input_cost_per_token: 0, output_cost_per_token: 0, max_input_tokens: 131072, max_output_tokens: 8192}
+
 
   # ---- Mini-only HEAVY coder model: 14B won't fit the Mac Pro's RAM budget, but the mini has it.
   #      Reached over Tailscale. Opt-in (model: "hermes-coder") for hard coding; NOT in the auto-fallback. ----
@@ -43,7 +51,7 @@ model_list:
       num_ctx: 65536
       keep_alive: "10m"
       rpm: 20
-    model_info: {mode: chat, input_cost_per_token: 0, output_cost_per_token: 0}
+    model_info: {mode: chat, input_cost_per_token: 0, output_cost_per_token: 0, max_input_tokens: 65536, max_output_tokens: 8192}
 
   # ---- Cross-family local model. Also the eval JUDGE (different family than qwen) ----
   - model_name: hermes-gemma
@@ -51,7 +59,7 @@ model_list:
       model: openai/gemma4-12b,gpu               # LiteRT OpenAI-compatible server
       api_base: http://127.0.0.1:9379/v1
       api_key: "none"
-    model_info: {mode: chat, input_cost_per_token: 0, output_cost_per_token: 0}
+    model_info: {mode: chat, input_cost_per_token: 0, output_cost_per_token: 0, max_input_tokens: 32768, max_output_tokens: 8192}
 
   # ---- PRIMARY CLOUD: GLM-5.2 via the z.ai Coding Plan SUBSCRIPTION (flat monthly, already paid).
   #      Igor pays for this monthly — use it, not per-token OpenRouter. Rate-capped (historic 429s)
@@ -63,6 +71,28 @@ model_list:
       api_key: os.environ/Z_AI_API_KEY
       timeout: 45                               # bound a blackholed/slow z.ai so failover to local is fast (was unbounded=120s router default x retries ≈ minutes). 45s covers normal GLM reasoning; a stuck call fails over to hermes-local. Verified 2026-07-04.
     model_info: {mode: chat, max_input_tokens: 1000000, max_output_tokens: 128000}   # 1M ctx / 128K out per docs.z.ai — lets pre_call_checks route oversized prompts here
+
+  # ---- VISION: GLM-4.6V multimodal via the SAME z.ai subscription. Powers hermes computer_use
+  #      (reads screenshots) + image inputs. Verified 2026-07-09: read "HERMES42" from a PNG. ----
+  - model_name: glm-vision
+    litellm_params:
+      model: openai/glm-4.6v
+      api_base: https://api.z.ai/api/coding/paas/v4
+      api_key: os.environ/Z_AI_API_KEY
+      timeout: 60
+    model_info: {mode: chat, supports_vision: true, max_input_tokens: 65536, max_output_tokens: 8192}
+
+  # ---- NVIDIA Nemotron Super 49B via NIM (build.nvidia.com). OPT-IN by name (model: "nemotron");
+  #      NOT in the auto-fallback chain — it's PER-TOKEN cloud, so it must not silently replace the
+  #      flat GLM sub. Verified 2026-07-09: tool-calls correctly. Use for hard agentic/coding when
+  #      you want a non-GLM opinion. Nemotron reasons heavily -> give it ≥1024 max_tokens. ----
+  - model_name: nemotron
+    litellm_params:
+      model: openai/nvidia/llama-3.3-nemotron-super-49b-v1.5
+      api_base: https://integrate.api.nvidia.com/v1
+      api_key: os.environ/NVIDIA_API_KEY
+      timeout: 60
+    model_info: {mode: chat, max_input_tokens: 131072, max_output_tokens: 8192}
 
   # ---- Same subscription, lighter/faster model: GLM-5-Turbo (200K ctx). Verified live on the
   #      coding endpoint 2026-07-02. Also reasons heavily — give it ≥300 max_tokens. ----
@@ -79,7 +109,8 @@ model_list:
     litellm_params:
       model: openrouter/z-ai/glm-5.2
       api_key: os.environ/OPENROUTER_API_KEY
-    model_info: {mode: chat}
+      max_tokens: 4096                          # low OpenRouter balance: Hermes asks for 65536 out-tokens and OpenRouter 402s the whole call ("can only afford ~6K") — cap so the LAST-RESORT route actually serves instead of dying (seen 2026-07-07 during z.ai quota exhaustion)
+    model_info: {mode: chat, max_output_tokens: 4096}
 
   # ---- Embeddings for the eval `similar` (cosine) assertion ----
   - model_name: text-embedding
@@ -104,7 +135,7 @@ router_settings:
   allowed_fails: 2
   cooldown_time: 45                              # bench a dead node (the mini) for 45s
   enable_pre_call_checks: true                  # oversized prompt => bigger-ctx / cloud
-  fallbacks: [{"glm-coding": ["hermes-local", "cloud-fallback"]}, {"glm-turbo": ["hermes-local", "cloud-fallback"]}, {"hermes-local": ["hermes-local-fast", "glm-coding", "cloud-fallback"]}]   # subscription GLM → local → OpenRouter only as paid backup; a z.ai 429 likely caps BOTH glm routes, so turbo falls to local not glm-coding
+  fallbacks: [{"glm-coding": ["cloud-fallback", "hermes-local"]}, {"glm-turbo": ["cloud-fallback", "hermes-local"]}, {"hermes-local": ["cloud-fallback", "glm-coding"]}]   # subscription GLM → OpenRouter GLM-5.2 → local. cloud-fallback MUST precede hermes-local: a local model answers HTTP 200 with degraded output, so the router treats the request as served and never advances. 2026-07-09: the z.ai Coding Plan hit its rolling 5-hour cap, cloud-fallback 402'd on a negative OpenRouter balance, and every agent silently landed on qwen3:8b, which re-emitted one identical 55-token tool call for hours with no crash and no alert. The 2026-07-07 patch dropped sub-8B models but left 8B ahead of the cloud route, so it only narrowed the blast radius. Degraded-but-200 is worse than a hard error — only a real tool-calling model belongs ahead of local. Local stays last for the genuinely-offline case.
   context_window_fallbacks: [{"hermes-local": ["glm-coding", "cloud-fallback"]}, {"glm-turbo": ["glm-coding"]}]   # >200K prompt on turbo => escalate to 1M-ctx glm-5.2
   content_policy_fallbacks: [{"glm-coding": ["hermes-local"]}, {"glm-turbo": ["hermes-local"]}]   # provider content-policy refusal => local model (separate trigger class per LiteLLM reliability docs)
 
