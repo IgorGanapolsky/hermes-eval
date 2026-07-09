@@ -5,6 +5,36 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "litellm"))
 import hermes_logger
 
 
+def test_glm_min_max_tokens_raises_small_budget():
+    # a tiny budget on a GLM route -> raised to the floor (reasoning would eat it -> empty)
+    k = hermes_logger.raise_glm_min_max_tokens({"model": "glm-coding", "max_tokens": 20}, floor=1024)
+    assert k["max_tokens"] == 1024
+    k = hermes_logger.raise_glm_min_max_tokens(
+        {"model": "grp", "litellm_params": {"model": "openai/glm-5.2"}, "max_tokens": 200}, floor=1024
+    )
+    assert k["max_tokens"] == 1024
+
+
+def test_glm_min_max_tokens_never_lowers_or_touches_non_glm():
+    # already-generous budget is left alone
+    k = hermes_logger.raise_glm_min_max_tokens({"model": "glm-coding", "max_tokens": 8000}, floor=1024)
+    assert k["max_tokens"] == 8000
+    # non-GLM routes untouched
+    assert "max_tokens" not in hermes_logger.raise_glm_min_max_tokens(
+        {"model": "hermes-local", "max_tokens": 50}, floor=1024
+    ) or hermes_logger.raise_glm_min_max_tokens(
+        {"model": "hermes-local", "max_tokens": 50}, floor=1024
+    )["max_tokens"] == 50
+    # the openrouter glm fallback is excluded (clamped down elsewhere, not floored up)
+    k = hermes_logger.raise_glm_min_max_tokens(
+        {"model": "openrouter/z-ai/glm-5.2", "max_tokens": 200}, floor=1024
+    )
+    assert k["max_tokens"] == 200
+    # no explicit budget -> nothing to raise (leave None; deployment/default applies)
+    k = hermes_logger.raise_glm_min_max_tokens({"model": "glm-coding"}, floor=1024)
+    assert "max_tokens" not in k
+
+
 def test_health_check_pings_are_filtered():
     assert hermes_logger.is_health_check([{"role": "user", "content": "Hey, how's it going?"}])
     assert hermes_logger.is_health_check([{"role": "user", "content": ""}])

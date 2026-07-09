@@ -33,19 +33,51 @@ _HEALTH_CHECK_PROMPTS = {"", "hey, how's it going?"}
 # config litellm_params.max_tokens does NOT override a request's own value.
 OPENROUTER_MAX_TOKENS = int(os.environ.get("HERMES_OPENROUTER_MAX_TOKENS", "4096"))
 
+# GLM-5.2/turbo are REASONING models: hidden reasoning_content is billed against the
+# request's max_tokens, so a small budget (e.g. 20-256) is fully consumed thinking and
+# the call returns HTTP 200 with EMPTY content (finish_reason=length). Data science on
+# the live log (2026-07-08) found this in 31% of GLM "successes" (111/360) — a SILENT
+# quality bug invisible to failure-based monitoring. Floor the budget so reasoning can't
+# starve the answer. max_tokens is a CEILING (GLM stops at finish_reason=stop when done),
+# so flooring adds ~0 cost on short answers but eliminates the empty-response failures.
+GLM_MIN_MAX_TOKENS = int(os.environ.get("HERMES_GLM_MIN_MAX_TOKENS", "1024"))
+
+
+def _model_strings(kwargs):
+    """(request model, deployment model) as lowercased strings for route matching."""
+    model = str(kwargs.get("model") or "")
+    lp = kwargs.get("litellm_params") or {}
+    dep_model = str(lp.get("model") or "") if isinstance(lp, dict) else ""
+    return model, dep_model
+
 
 def clamp_openrouter_max_tokens(kwargs, cap=None):
     """Clamp max_tokens for openrouter/* deployments so a low credit balance can't 402
     the emergency route. Pure helper (unit-testable); mutates and returns kwargs."""
     cap = OPENROUTER_MAX_TOKENS if cap is None else cap
-    model = str(kwargs.get("model") or "")
-    lp = kwargs.get("litellm_params") or {}
-    dep_model = str(lp.get("model") or "") if isinstance(lp, dict) else ""
+    model, dep_model = _model_strings(kwargs)
     if not (model.startswith("openrouter/") or dep_model.startswith("openrouter/")):
         return kwargs
     mt = kwargs.get("max_tokens")
     if not isinstance(mt, int) or mt > cap:
         kwargs["max_tokens"] = cap
+    return kwargs
+
+
+def raise_glm_min_max_tokens(kwargs, floor=None):
+    """Raise max_tokens to a floor for GLM (z.ai reasoning) deployments so hidden
+    reasoning can't consume the whole budget and return empty content. Pure helper;
+    only RAISES a too-small explicit budget, never lowers one. Excludes the
+    openrouter/* glm fallback (that route is clamped down separately)."""
+    floor = GLM_MIN_MAX_TOKENS if floor is None else floor
+    model, dep_model = _model_strings(kwargs)
+    if model.startswith("openrouter/") or dep_model.startswith("openrouter/"):
+        return kwargs
+    if "glm" not in model.lower() and "glm" not in dep_model.lower():
+        return kwargs
+    mt = kwargs.get("max_tokens")
+    if isinstance(mt, int) and mt < floor:
+        kwargs["max_tokens"] = floor
     return kwargs
 
 
@@ -186,8 +218,9 @@ def build_record(kwargs, response_obj, latency_s, status):
 
 class HermesJSONLLogger(CustomLogger):
     async def async_pre_call_deployment_hook(self, kwargs, call_type):
-        with contextlib.suppress(Exception):  # never break a request because of the clamp
-            return clamp_openrouter_max_tokens(kwargs)
+        with contextlib.suppress(Exception):  # never break a request because of the guards
+            raise_glm_min_max_tokens(kwargs)  # GLM reasoning floor (empty-content fix)
+            return clamp_openrouter_max_tokens(kwargs)  # openrouter cap (last-resort 402 fix)
         return kwargs
 
     def log_success_event(self, kwargs, response_obj, start_time, end_time):
