@@ -82,6 +82,18 @@ model_list:
       timeout: 60
     model_info: {mode: chat, supports_vision: true, max_input_tokens: 65536, max_output_tokens: 8192}
 
+  # ---- NVIDIA Nemotron Super 49B via NIM (build.nvidia.com). OPT-IN by name (model: "nemotron");
+  #      NOT in the auto-fallback chain — it's PER-TOKEN cloud, so it must not silently replace the
+  #      flat GLM sub. Verified 2026-07-09: tool-calls correctly. Use for hard agentic/coding when
+  #      you want a non-GLM opinion. Nemotron reasons heavily -> give it ≥1024 max_tokens. ----
+  - model_name: nemotron
+    litellm_params:
+      model: openai/nvidia/llama-3.3-nemotron-super-49b-v1.5
+      api_base: https://integrate.api.nvidia.com/v1
+      api_key: os.environ/NVIDIA_API_KEY
+      timeout: 60
+    model_info: {mode: chat, max_input_tokens: 131072, max_output_tokens: 8192}
+
   # ---- Same subscription, lighter/faster model: GLM-5-Turbo (200K ctx). Verified live on the
   #      coding endpoint 2026-07-02. Also reasons heavily — give it ≥300 max_tokens. ----
   - model_name: glm-turbo
