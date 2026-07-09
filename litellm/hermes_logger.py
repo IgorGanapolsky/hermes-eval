@@ -201,13 +201,55 @@ def extract_content(response_obj, slo):
     return content if isinstance(content, str) else None
 
 
+def extract_finish_reason(response_obj, slo):
+    """Best-effort finish_reason ('stop' | 'length' | 'tool_calls' | ...); None if absent."""
+    fr = None
+    try:
+        fr = response_obj["choices"][0]["finish_reason"]
+    except Exception:
+        fr = slo.get("finish_reason") if isinstance(slo, dict) else None
+    return fr if isinstance(fr, str) else None
+
+
+def has_tool_calls(response_obj):
+    """True if the response carried tool_calls (empty content is then legitimate, not a
+    truncation bug — the distinction the raw 'empty response' metric couldn't make)."""
+    with contextlib.suppress(Exception):
+        msg = response_obj["choices"][0]["message"]
+        tc = msg.get("tool_calls") if isinstance(msg, dict) else getattr(msg, "tool_calls", None)
+        return bool(tc)
+    return False
+
+
+def empty_content_kind(response, finish_reason, tool_calls):
+    """Classify an empty-content success so drift analysis can separate the real defect
+    from normal tool use. Returns None when content is present.
+      'tool_call'  -> empty by design (payload in tool_calls); healthy
+      'truncated'  -> reasoning/length ate the budget (finish_reason=length); the bug
+                      the GLM max_tokens floor targets
+      'empty'      -> empty for some other reason; worth a look"""
+    if (response or "").strip():
+        return None
+    if tool_calls:
+        return "tool_call"
+    if finish_reason == "length":
+        return "truncated"
+    return "empty"
+
+
 def build_record(kwargs, response_obj, latency_s, status):
     """Pure record builder (unit-testable)."""
     slo = kwargs.get("standard_logging_object") or {}
+    content = extract_content(response_obj, slo)
+    finish_reason = extract_finish_reason(response_obj, slo)
+    tool_calls = has_tool_calls(response_obj)
     return {
         "model": kwargs.get("model") or slo.get("model"),
         "messages": kwargs.get("messages") or slo.get("messages"),
-        "response": extract_content(response_obj, slo),
+        "response": content,
+        "finish_reason": finish_reason,
+        "has_tool_calls": tool_calls,
+        "empty_kind": empty_content_kind(content, finish_reason, tool_calls),
         "prompt_tokens": slo.get("prompt_tokens"),
         "completion_tokens": slo.get("completion_tokens"),
         "total_tokens": slo.get("total_tokens"),

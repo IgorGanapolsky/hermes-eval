@@ -69,6 +69,31 @@ def test_build_record_shape():
     )
     assert rec["model"] == "m" and rec["response"] == "a"
     assert rec["total_tokens"] == 5 and rec["latency_s"] == 1.5 and rec["status"] == "success"
+    # normal answer -> classified as non-empty
+    assert rec["empty_kind"] is None and rec["has_tool_calls"] is False
+
+
+def test_empty_content_kind_separates_toolcall_from_truncation():
+    # content present -> not empty
+    assert hermes_logger.empty_content_kind("hi", "stop", False) is None
+    # empty with tool_calls -> legitimate (the qwen3:8b 62% case)
+    assert hermes_logger.empty_content_kind("", "tool_calls", True) == "tool_call"
+    assert hermes_logger.empty_content_kind("", None, True) == "tool_call"
+    # empty with finish_reason=length -> the truncation bug the GLM floor targets
+    assert hermes_logger.empty_content_kind("", "length", False) == "truncated"
+    # empty, no tool_calls, not length -> unexplained
+    assert hermes_logger.empty_content_kind("", "stop", False) == "empty"
+
+
+def test_finish_reason_and_tool_calls_extraction():
+    obj = {"choices": [{"finish_reason": "length",
+                        "message": {"content": "", "tool_calls": [{"id": "1"}]}}]}
+    assert hermes_logger.extract_finish_reason(obj, {}) == "length"
+    assert hermes_logger.has_tool_calls(obj) is True
+    # no tool_calls / malformed -> safe defaults
+    assert hermes_logger.has_tool_calls({"choices": [{"message": {"content": "x"}}]}) is False
+    assert hermes_logger.extract_finish_reason({}, {"finish_reason": "stop"}) == "stop"
+    assert hermes_logger.extract_finish_reason({}, {}) is None
 
 
 # ---- Alerting helpers ------------------------------------------------------------
