@@ -292,8 +292,9 @@ class HermesJSONLLogger(CustomLogger):
             with open(LOG_PATH, "a", encoding="utf-8") as f:
                 f.write(json.dumps(rec, default=str, ensure_ascii=False) + "\n")
             with contextlib.suppress(Exception):  # alerting must never break a request
-                self._maybe_alert(status, rec.get("model"), kwargs, response_obj,
-                                  rec.get("total_tokens"))
+                self._maybe_alert(
+                    status, rec.get("model"), kwargs, response_obj, rec.get("total_tokens")
+                )
         except Exception as e:  # never break a request because logging failed
             print(f"[hermes_logger] log error: {e}")
 

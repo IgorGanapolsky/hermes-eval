@@ -7,24 +7,34 @@ import hermes_logger
 
 def test_glm_min_max_tokens_raises_small_budget():
     # a tiny budget on a GLM route -> raised to the floor (reasoning would eat it -> empty)
-    k = hermes_logger.raise_glm_min_max_tokens({"model": "glm-coding", "max_tokens": 20}, floor=1024)
+    k = hermes_logger.raise_glm_min_max_tokens(
+        {"model": "glm-coding", "max_tokens": 20}, floor=1024
+    )
     assert k["max_tokens"] == 1024
     k = hermes_logger.raise_glm_min_max_tokens(
-        {"model": "grp", "litellm_params": {"model": "openai/glm-5.2"}, "max_tokens": 200}, floor=1024
+        {"model": "grp", "litellm_params": {"model": "openai/glm-5.2"}, "max_tokens": 200},
+        floor=1024,
     )
     assert k["max_tokens"] == 1024
 
 
 def test_glm_min_max_tokens_never_lowers_or_touches_non_glm():
     # already-generous budget is left alone
-    k = hermes_logger.raise_glm_min_max_tokens({"model": "glm-coding", "max_tokens": 8000}, floor=1024)
+    k = hermes_logger.raise_glm_min_max_tokens(
+        {"model": "glm-coding", "max_tokens": 8000}, floor=1024
+    )
     assert k["max_tokens"] == 8000
     # non-GLM routes untouched
-    assert "max_tokens" not in hermes_logger.raise_glm_min_max_tokens(
-        {"model": "hermes-local", "max_tokens": 50}, floor=1024
-    ) or hermes_logger.raise_glm_min_max_tokens(
-        {"model": "hermes-local", "max_tokens": 50}, floor=1024
-    )["max_tokens"] == 50
+    assert (
+        "max_tokens"
+        not in hermes_logger.raise_glm_min_max_tokens(
+            {"model": "hermes-local", "max_tokens": 50}, floor=1024
+        )
+        or hermes_logger.raise_glm_min_max_tokens(
+            {"model": "hermes-local", "max_tokens": 50}, floor=1024
+        )["max_tokens"]
+        == 50
+    )
     # the openrouter glm fallback is excluded (clamped down elsewhere, not floored up)
     k = hermes_logger.raise_glm_min_max_tokens(
         {"model": "openrouter/z-ai/glm-5.2", "max_tokens": 200}, floor=1024
@@ -86,8 +96,11 @@ def test_empty_content_kind_separates_toolcall_from_truncation():
 
 
 def test_finish_reason_and_tool_calls_extraction():
-    obj = {"choices": [{"finish_reason": "length",
-                        "message": {"content": "", "tool_calls": [{"id": "1"}]}}]}
+    obj = {
+        "choices": [
+            {"finish_reason": "length", "message": {"content": "", "tool_calls": [{"id": "1"}]}}
+        ]
+    }
     assert hermes_logger.extract_finish_reason(obj, {}) == "length"
     assert hermes_logger.has_tool_calls(obj) is True
     # no tool_calls / malformed -> safe defaults
@@ -137,9 +150,10 @@ def test_should_alert_cooldown():
 def test_extract_error_text_shapes():
     assert hermes_logger.extract_error_text({"exception": ValueError("boom")}, None) == "boom"
     assert "1310" in hermes_logger.extract_error_text({}, "Error 1310")
-    assert hermes_logger.extract_error_text(
-        {"standard_logging_object": {"error_str": "quota"}}, None
-    ) == "quota"
+    assert (
+        hermes_logger.extract_error_text({"standard_logging_object": {"error_str": "quota"}}, None)
+        == "quota"
+    )
 
 
 def test_send_ntfy_disabled_is_noop(monkeypatch):
