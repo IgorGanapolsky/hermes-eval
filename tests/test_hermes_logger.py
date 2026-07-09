@@ -39,3 +39,54 @@ def test_build_record_shape():
     )
     assert rec["model"] == "m" and rec["response"] == "a"
     assert rec["total_tokens"] == 5 and rec["latency_s"] == 1.5 and rec["status"] == "success"
+
+
+# ---- Alerting helpers ------------------------------------------------------------
+
+
+def test_classify_failure_pages_only_on_quota_exhaustion():
+    # code 1310 / quota / exhausted -> the one instant-page failure
+    assert "quota" in hermes_logger.classify_failure("Error code: 1310 quota exhausted").lower()
+    assert hermes_logger.classify_failure("insufficient balance / quota") is not None
+
+
+def test_classify_failure_ignores_the_33pct_noise():
+    # generic GLM failures, rate-limit bursts, auth, local blips: NOT paged in real time
+    # (the 30-min poller's 6h degraded alert owns sustained degradation)
+    assert hermes_logger.classify_failure("429 Too Many Requests") is None
+    assert hermes_logger.classify_failure("401 Unauthorized") is None
+    assert hermes_logger.classify_failure("connection reset by peer") is None
+    assert hermes_logger.classify_failure("") is None
+    assert hermes_logger.classify_failure(None) is None
+
+
+def test_update_burn_accumulates_crosses_once_then_resets():
+    st, crossed = hermes_logger.update_burn(None, 600, now=1000.0, window_sec=3600, threshold=1000)
+    assert not crossed and st["tokens"] == 600
+    st, crossed = hermes_logger.update_burn(st, 600, now=1100.0, window_sec=3600, threshold=1000)
+    assert crossed and st["tokens"] == 1200 and st["alerted"]
+    # same window, already alerted -> does not re-fire
+    st, crossed = hermes_logger.update_burn(st, 600, now=1200.0, window_sec=3600, threshold=1000)
+    assert not crossed
+    # window elapsed -> resets and can fire again
+    st, crossed = hermes_logger.update_burn(st, 100, now=9999.0, window_sec=3600, threshold=1000)
+    assert not crossed and st["tokens"] == 100 and not st["alerted"]
+
+
+def test_should_alert_cooldown():
+    assert hermes_logger.should_alert(now=1000.0, last_alert_ts=None, cooldown_sec=900)
+    assert not hermes_logger.should_alert(now=1000.0, last_alert_ts=500.0, cooldown_sec=900)
+    assert hermes_logger.should_alert(now=1500.0, last_alert_ts=500.0, cooldown_sec=900)
+
+
+def test_extract_error_text_shapes():
+    assert hermes_logger.extract_error_text({"exception": ValueError("boom")}, None) == "boom"
+    assert "1310" in hermes_logger.extract_error_text({}, "Error 1310")
+    assert hermes_logger.extract_error_text(
+        {"standard_logging_object": {"error_str": "quota"}}, None
+    ) == "quota"
+
+
+def test_send_ntfy_disabled_is_noop(monkeypatch):
+    monkeypatch.setattr(hermes_logger, "ALERTS_ENABLED", False)
+    assert hermes_logger.send_ntfy("t", "m") is False
