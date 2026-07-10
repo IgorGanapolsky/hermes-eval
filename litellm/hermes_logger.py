@@ -211,6 +211,23 @@ def extract_finish_reason(response_obj, slo):
     return fr if isinstance(fr, str) else None
 
 
+def tools_offered(kwargs):
+    """Whether the REQUEST supplied tools at all.
+
+    Without this you cannot tell a stuck agent from an ordinary chat completion:
+    both show has_tool_calls=False. A vision or embedding call legitimately never
+    calls a tool. Any spin/no-progress detector must only judge calls where tools
+    were actually available."""
+    with contextlib.suppress(Exception):
+        tools = kwargs.get("tools")
+        if tools:
+            return True
+        funcs = kwargs.get("functions")
+        if funcs:
+            return True
+    return False
+
+
 def has_tool_calls(response_obj):
     """True if the response carried tool_calls (empty content is then legitimate, not a
     truncation bug — the distinction the raw 'empty response' metric couldn't make)."""
@@ -249,6 +266,7 @@ def build_record(kwargs, response_obj, latency_s, status):
         "response": content,
         "finish_reason": finish_reason,
         "has_tool_calls": tool_calls,
+        "tools_offered": tools_offered(kwargs),
         "empty_kind": empty_content_kind(content, finish_reason, tool_calls),
         "prompt_tokens": slo.get("prompt_tokens"),
         "completion_tokens": slo.get("completion_tokens"),

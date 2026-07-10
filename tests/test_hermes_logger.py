@@ -159,3 +159,15 @@ def test_extract_error_text_shapes():
 def test_send_ntfy_disabled_is_noop(monkeypatch):
     monkeypatch.setattr(hermes_logger, "ALERTS_ENABLED", False)
     assert hermes_logger.send_ntfy("t", "m") is False
+
+
+def test_tools_offered_distinguishes_agentic_calls_from_plain_chat():
+    """A plain chat/vision call has no tools; a stuck agent's call does. Without
+    this flag both look identical (has_tool_calls=False) to a spin detector."""
+    from litellm.hermes_logger import tools_offered
+
+    assert tools_offered({"tools": [{"type": "function"}]}) is True
+    assert tools_offered({"functions": [{"name": "f"}]}) is True
+    assert tools_offered({"tools": []}) is False
+    assert tools_offered({}) is False
+    assert tools_offered({"tools": None}) is False
