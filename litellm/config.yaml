@@ -94,6 +94,19 @@ model_list:
       timeout: 60
     model_info: {mode: chat, max_input_tokens: 131072, max_output_tokens: 8192}
 
+  # ---- NVIDIA Nemotron 3 Ultra 550B via OpenRouter FREE tier. Wired into the auto-fallback
+  #      chain (below) between cloud-fallback and hermes-local. Rationale: the 2026-07-09 outage
+  #      (see fallbacks note) had both GLM routes fail and agents silently loop on qwen3:8b for
+  #      hours. This is a strong, tool-calling model that FAILS HARD instead of degrading-200, so
+  #      it belongs ahead of local. FREE tier => no per-token cost, so unlike `nemotron` (NIM,
+  #      per-token) it is safe to automate. Verified tool-calling 2026-07-10 before wiring. ----
+  - model_name: nemotron3-free
+    litellm_params:
+      model: openrouter/nvidia/nemotron-3-ultra-550b-a55b:free
+      api_key: os.environ/OPENROUTER_API_KEY
+      timeout: 45
+    model_info: {mode: chat, input_cost_per_token: 0, output_cost_per_token: 0, max_input_tokens: 131072, max_output_tokens: 8192}
+
   # ---- Same subscription, lighter/faster model: GLM-5-Turbo (200K ctx). Verified live on the
   #      coding endpoint 2026-07-02. Also reasons heavily — give it ≥300 max_tokens. ----
   - model_name: glm-turbo
@@ -135,7 +148,7 @@ router_settings:
   allowed_fails: 2
   cooldown_time: 45                              # bench a dead node (the mini) for 45s
   enable_pre_call_checks: true                  # oversized prompt => bigger-ctx / cloud
-  fallbacks: [{"glm-coding": ["cloud-fallback", "hermes-local"]}, {"glm-turbo": ["cloud-fallback", "hermes-local"]}, {"hermes-local": ["cloud-fallback", "glm-coding"]}]   # subscription GLM → OpenRouter GLM-5.2 → local. cloud-fallback MUST precede hermes-local: a local model answers HTTP 200 with degraded output, so the router treats the request as served and never advances. 2026-07-09: the z.ai Coding Plan hit its rolling 5-hour cap, cloud-fallback 402'd on a negative OpenRouter balance, and every agent silently landed on qwen3:8b, which re-emitted one identical 55-token tool call for hours with no crash and no alert. The 2026-07-07 patch dropped sub-8B models but left 8B ahead of the cloud route, so it only narrowed the blast radius. Degraded-but-200 is worse than a hard error — only a real tool-calling model belongs ahead of local. Local stays last for the genuinely-offline case.
+  fallbacks: [{"glm-coding": ["cloud-fallback", "nemotron3-free", "hermes-local"]}, {"glm-turbo": ["cloud-fallback", "nemotron3-free", "hermes-local"]}, {"hermes-local": ["cloud-fallback", "nemotron3-free", "glm-coding"]}]   # subscription GLM → OpenRouter GLM-5.2 → Nemotron-3-Ultra-550B (free, tool-calling, fails-hard) → local. cloud-fallback MUST precede hermes-local: a local model answers HTTP 200 with degraded output, so the router treats the request as served and never advances. 2026-07-09: the z.ai Coding Plan hit its rolling 5-hour cap, cloud-fallback 402'd on a negative OpenRouter balance, and every agent silently landed on qwen3:8b, which re-emitted one identical 55-token tool call for hours with no crash and no alert. The 2026-07-07 patch dropped sub-8B models but left 8B ahead of the cloud route, so it only narrowed the blast radius. Degraded-but-200 is worse than a hard error — only a real tool-calling model belongs ahead of local. Local stays last for the genuinely-offline case.
   context_window_fallbacks: [{"hermes-local": ["glm-coding", "cloud-fallback"]}, {"glm-turbo": ["glm-coding"]}]   # >200K prompt on turbo => escalate to 1M-ctx glm-5.2
   content_policy_fallbacks: [{"glm-coding": ["hermes-local"]}, {"glm-turbo": ["hermes-local"]}]   # provider content-policy refusal => local model (separate trigger class per LiteLLM reliability docs)
 
