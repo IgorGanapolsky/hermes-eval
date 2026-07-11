@@ -211,6 +211,23 @@ def extract_finish_reason(response_obj, slo):
     return fr if isinstance(fr, str) else None
 
 
+def tools_offered(kwargs):
+    """Whether the REQUEST supplied tools at all.
+
+    Without this you cannot tell a stuck agent from an ordinary chat completion:
+    both show has_tool_calls=False. A vision or embedding call legitimately never
+    calls a tool. Any spin/no-progress detector must only judge calls where tools
+    were actually available."""
+    with contextlib.suppress(Exception):
+        tools = kwargs.get("tools")
+        if tools:
+            return True
+        funcs = kwargs.get("functions")
+        if funcs:
+            return True
+    return False
+
+
 def has_tool_calls(response_obj):
     """True if the response carried tool_calls (empty content is then legitimate, not a
     truncation bug — the distinction the raw 'empty response' metric couldn't make)."""
@@ -219,6 +236,26 @@ def has_tool_calls(response_obj):
         tc = msg.get("tool_calls") if isinstance(msg, dict) else getattr(msg, "tool_calls", None)
         return bool(tc)
     return False
+
+
+def extract_tool_calls(response_obj):
+    """The actual tool-call payload (name + arguments), serialized to plain dicts, or None.
+    The boolean has_tool_calls flags THAT a tool was called; this captures WHAT — the crux
+    of any tool-use distillation dataset, which was previously discarded (payload lived only
+    in the response object, and `response` text is empty on a pure tool-call turn)."""
+    with contextlib.suppress(Exception):
+        msg = response_obj["choices"][0]["message"]
+        tc = msg.get("tool_calls") if isinstance(msg, dict) else getattr(msg, "tool_calls", None)
+        if not tc:
+            return None
+        out = []
+        for c in tc:
+            fn = c.get("function") if isinstance(c, dict) else getattr(c, "function", None)
+            name = (fn.get("name") if isinstance(fn, dict) else getattr(fn, "name", None)) if fn else None
+            args = (fn.get("arguments") if isinstance(fn, dict) else getattr(fn, "arguments", None)) if fn else None
+            out.append({"name": name, "arguments": args})
+        return out or None
+    return None
 
 
 def empty_content_kind(response, finish_reason, tool_calls):
@@ -249,6 +286,8 @@ def build_record(kwargs, response_obj, latency_s, status):
         "response": content,
         "finish_reason": finish_reason,
         "has_tool_calls": tool_calls,
+        "tool_calls": extract_tool_calls(response_obj),
+        "tools_offered": tools_offered(kwargs),
         "empty_kind": empty_content_kind(content, finish_reason, tool_calls),
         "prompt_tokens": slo.get("prompt_tokens"),
         "completion_tokens": slo.get("completion_tokens"),
