@@ -17,24 +17,44 @@ MLX-LM LoRA / mlx-tune SFT.
 Usage:
   python3 build-distill-dataset.py [--in TRAFFIC] [--out DATASET] [--teacher glm,nemotron]
 """
-import argparse, json, os, sys
+import argparse, glob, gzip, hashlib, json, os, sys
 
-DEFAULT_IN = os.path.expanduser("~/.hermes/litellm-logs/traffic.jsonl")
+LOG_DIR = os.path.expanduser("~/.hermes/litellm-logs")
+DEFAULT_IN = os.path.join(LOG_DIR, "traffic.jsonl")
 GOOD_FINISH = {"stop", "tool_calls"}
 
 
-def load(path):
+def _open(path):
+    return gzip.open(path, "rt") if path.endswith(".gz") else open(path)
+
+
+def load(path, include_archives=False):
+    """Load the live log, and (for --accumulate) the rotated .gz archives too, so trajectory
+    history survives log rotation (rotate-traffic-log.sh gzips traffic.jsonl.<date>.gz)."""
+    paths = [path]
+    if include_archives:
+        paths += sorted(glob.glob(os.path.join(os.path.dirname(path), "traffic.jsonl.*.gz")))
     rows = []
-    with open(path) as fh:
-        for line in fh:
-            line = line.strip()
-            if not line:
-                continue
-            try:
-                rows.append(json.loads(line))
-            except json.JSONDecodeError:
-                continue
+    for p in paths:
+        if not os.path.exists(p):
+            continue
+        with _open(p) as fh:
+            for line in fh:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    rows.append(json.loads(line))
+                except json.JSONDecodeError:
+                    continue
     return rows
+
+
+def example_key(ex):
+    """Stable content hash for dedup across re-runs and overlapping log windows."""
+    m = ex["messages"]
+    payload = json.dumps([m[0] if m else {}, m[-1]], sort_keys=True) + str(ex.get("meta", {}).get("ts"))
+    return hashlib.sha256(payload.encode()).hexdigest()
 
 
 def usable(row, teachers):
@@ -69,24 +89,44 @@ def main():
     ap.add_argument("--out", default=os.path.expanduser("~/.hermes/distill/teacher-tooluse.jsonl"))
     ap.add_argument("--teacher", default="glm,nemotron,claude",
                     help="comma-separated teacher substrings to keep (empty = all)")
+    ap.add_argument("--accumulate", action="store_true",
+                    help="read rotated .gz archives too and merge/dedupe into the existing "
+                         "dataset instead of overwriting (for the scheduled job)")
     args = ap.parse_args()
 
     teachers = [t.strip().lower() for t in args.teacher.split(",") if t.strip()]
     if not os.path.exists(args.inp):
         sys.exit(f"traffic log not found: {args.inp}")
 
-    rows = load(args.inp)
-    kept = [to_example(r) for r in rows if usable(r, teachers)]
+    rows = load(args.inp, include_archives=args.accumulate)
+    fresh = [to_example(r) for r in rows if usable(r, teachers)]
+
+    # Merge with any existing dataset, deduping by content hash so re-runs and overlapping
+    # log windows never double-count.
+    existing = []
+    if args.accumulate and os.path.exists(args.out):
+        existing = load(args.out)
+    by_key = {example_key(ex): ex for ex in existing}
+    before = len(by_key)
+    for ex in fresh:
+        by_key.setdefault(example_key(ex), ex)
+    merged = list(by_key.values())
+    added = len(merged) - before
 
     os.makedirs(os.path.dirname(args.out), exist_ok=True)
-    with open(args.out, "w") as fh:
-        for ex in kept:
+    tmp = args.out + ".tmp"
+    with open(tmp, "w") as fh:
+        for ex in merged:
             fh.write(json.dumps(ex) + "\n")
+    os.replace(tmp, args.out)
 
-    print(f"read      {len(rows)} trajectories from {args.inp}")
-    print(f"kept      {len(kept)} teacher tool-use trajectories (teachers={teachers or 'all'})")
-    print(f"wrote     {args.out}")
-    print(f"note      distillation becomes worthwhile around a few hundred+; run periodically to accumulate.")
+    src = "live+archives" if args.accumulate else "live log"
+    print(f"read      {len(rows)} trajectories from {src}")
+    print(f"usable    {len(fresh)} teacher tool-use trajectories (teachers={teachers or 'all'})")
+    if args.accumulate:
+        print(f"added     {added} new (deduped against {before} existing)")
+    print(f"total     {len(merged)} in dataset -> {args.out}")
+    print(f"note      distillation becomes worthwhile around a few hundred+ clean traces.")
 
 
 if __name__ == "__main__":
