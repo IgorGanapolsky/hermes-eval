@@ -17,7 +17,14 @@ MLX-LM LoRA / mlx-tune SFT.
 Usage:
   python3 build-distill-dataset.py [--in TRAFFIC] [--out DATASET] [--teacher glm,nemotron]
 """
-import argparse, glob, gzip, hashlib, json, os, sys
+
+import argparse
+import glob
+import gzip
+import hashlib
+import json
+import os
+import sys
 
 LOG_DIR = os.path.expanduser("~/.hermes/litellm-logs")
 DEFAULT_IN = os.path.join(LOG_DIR, "traffic.jsonl")
@@ -53,7 +60,9 @@ def load(path, include_archives=False):
 def example_key(ex):
     """Stable content hash for dedup across re-runs and overlapping log windows."""
     m = ex["messages"]
-    payload = json.dumps([m[0] if m else {}, m[-1]], sort_keys=True) + str(ex.get("meta", {}).get("ts"))
+    payload = json.dumps([m[0] if m else {}, m[-1]], sort_keys=True) + str(
+        ex.get("meta", {}).get("ts")
+    )
     return hashlib.sha256(payload.encode()).hexdigest()
 
 
@@ -87,11 +96,17 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--in", dest="inp", default=DEFAULT_IN)
     ap.add_argument("--out", default=os.path.expanduser("~/.hermes/distill/teacher-tooluse.jsonl"))
-    ap.add_argument("--teacher", default="glm,nemotron,claude",
-                    help="comma-separated teacher substrings to keep (empty = all)")
-    ap.add_argument("--accumulate", action="store_true",
-                    help="read rotated .gz archives too and merge/dedupe into the existing "
-                         "dataset instead of overwriting (for the scheduled job)")
+    ap.add_argument(
+        "--teacher",
+        default="glm,nemotron,claude",
+        help="comma-separated teacher substrings to keep (empty = all)",
+    )
+    ap.add_argument(
+        "--accumulate",
+        action="store_true",
+        help="read rotated .gz archives too and merge/dedupe into the existing "
+        "dataset instead of overwriting (for the scheduled job)",
+    )
     args = ap.parse_args()
 
     teachers = [t.strip().lower() for t in args.teacher.split(",") if t.strip()]
@@ -126,7 +141,7 @@ def main():
     if args.accumulate:
         print(f"added     {added} new (deduped against {before} existing)")
     print(f"total     {len(merged)} in dataset -> {args.out}")
-    print(f"note      distillation becomes worthwhile around a few hundred+ clean traces.")
+    print("note      distillation becomes worthwhile around a few hundred+ clean traces.")
 
 
 if __name__ == "__main__":

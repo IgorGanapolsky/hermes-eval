@@ -251,8 +251,16 @@ def extract_tool_calls(response_obj):
         out = []
         for c in tc:
             fn = c.get("function") if isinstance(c, dict) else getattr(c, "function", None)
-            name = (fn.get("name") if isinstance(fn, dict) else getattr(fn, "name", None)) if fn else None
-            args = (fn.get("arguments") if isinstance(fn, dict) else getattr(fn, "arguments", None)) if fn else None
+            name = (
+                (fn.get("name") if isinstance(fn, dict) else getattr(fn, "name", None))
+                if fn
+                else None
+            )
+            args = (
+                (fn.get("arguments") if isinstance(fn, dict) else getattr(fn, "arguments", None))
+                if fn
+                else None
+            )
             out.append({"name": name, "arguments": args})
         return out or None
     return None

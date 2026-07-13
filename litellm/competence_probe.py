@@ -53,7 +53,18 @@ OPENROUTER_CREDITS_URL = "https://openrouter.ai/api/v1/credits"
 
 # Models fit to drive a tool-using agent. Matched as substrings against the served model id,
 # which carries provider prefixes and date suffixes (e.g. "z-ai/glm-5.2-20260616").
-COMPETENT_MARKERS = ("glm-coding", "glm-5.2", "glm-5-turbo", "glm-4.6v")
+# nemotron-super-49b: NIM fallback, tool-calling verified 2026-07-09 (config note) and
+# re-proven live 2026-07-12/13 (this probe's own tool_calls=["ping"] passing + real agent
+# runs) — without this marker the probe reported a healthy 49B-served fleet as degraded.
+# nemotron-3-ultra: OpenRouter free tier, tool-calling verified 2026-07-10 before wiring.
+COMPETENT_MARKERS = (
+    "glm-coding",
+    "glm-5.2",
+    "glm-5-turbo",
+    "glm-4.6v",
+    "nemotron-super-49b",
+    "nemotron-3-ultra",
+)
 
 # Known degradation targets. Listed explicitly so a NEW unknown model is reported as unknown
 # rather than silently assumed competent — the exact assumption that caused the incident.
