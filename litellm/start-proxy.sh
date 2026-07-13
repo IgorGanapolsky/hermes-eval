@@ -13,6 +13,9 @@ fi
 if [ -z "${NVIDIA_API_KEY:-}" ] && [ -f "$HOME/.hermes/.env" ]; then
   export NVIDIA_API_KEY="$(grep '^NVIDIA_API_KEY=' "$HOME/.hermes/.env" | tail -1 | cut -d= -f2-)"
 fi
+if grep -q '^META_MODEL_API_KEY=' "$HOME/.hermes/.env" 2>/dev/null; then
+  export META_MODEL_API_KEY="$(grep '^META_MODEL_API_KEY=' "$HOME/.hermes/.env" | tail -1 | cut -d= -f2-)"
+fi
 export HERMES_LOG_PATH="${HERMES_LOG_PATH:-$HOME/.hermes/litellm-logs/traffic.jsonl}"
 LITELLM_BIN="${LITELLM_BIN:-$HOME/.local/bin/litellm}"
 exec "$LITELLM_BIN" --config "$HERE/config.yaml" --port "${LITELLM_PORT:-4010}"

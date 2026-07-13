@@ -118,6 +118,18 @@ model_list:
     model_info: {mode: chat, max_input_tokens: 200000, max_output_tokens: 128000}
 
   # ---- Cloud fallback (paid PER-TOKEN). Only when the subscription is unreachable/quota-capped ----
+  # ---- Meta Muse Spark 1.1 via Meta Model API (added 2026-07-13). $20 free credits then
+  #      $1.25/M in, $4.25/M out — cheapest capable tool-calling tier on the fleet. 1M ctx,
+  #      multimodal, reasoning model (needs generous max_tokens). OPT-IN by name for now;
+  #      candidate to precede the per-token NIM route in fallbacks once proven under load. ----
+  - model_name: muse-spark
+    litellm_params:
+      model: openai/muse-spark-1.1
+      api_base: https://api.meta.ai/v1
+      api_key: os.environ/META_MODEL_API_KEY
+      timeout: 90
+    model_info: {mode: chat, max_input_tokens: 1000000, max_output_tokens: 16384}
+
   - model_name: cloud-fallback
     litellm_params:
       model: openrouter/z-ai/glm-5.2
