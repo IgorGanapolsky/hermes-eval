@@ -58,8 +58,12 @@ OPENROUTER_CREDITS_URL = "https://openrouter.ai/api/v1/credits"
 # runs) — without this marker the probe reported a healthy 49B-served fleet as degraded.
 # nemotron-3-ultra: OpenRouter free tier, tool-calling verified 2026-07-10 before wiring.
 COMPETENT_MARKERS = (
-    "glm-coding", "glm-5.2", "glm-5-turbo", "glm-4.6v",
-    "nemotron-super-49b", "nemotron-3-ultra",
+    "glm-coding",
+    "glm-5.2",
+    "glm-5-turbo",
+    "glm-4.6v",
+    "nemotron-super-49b",
+    "nemotron-3-ultra",
 )
 
 # Known degradation targets. Listed explicitly so a NEW unknown model is reported as unknown
