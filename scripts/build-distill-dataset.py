@@ -17,7 +17,13 @@ MLX-LM LoRA / mlx-tune SFT.
 Usage:
   python3 build-distill-dataset.py [--in TRAFFIC] [--out DATASET] [--teacher glm,nemotron]
 """
-import argparse, glob, gzip, hashlib, json, os, sys
+import argparse
+import glob
+import gzip
+import hashlib
+import json
+import os
+import sys
 
 LOG_DIR = os.path.expanduser("~/.hermes/litellm-logs")
 DEFAULT_IN = os.path.join(LOG_DIR, "traffic.jsonl")
@@ -126,7 +132,7 @@ def main():
     if args.accumulate:
         print(f"added     {added} new (deduped against {before} existing)")
     print(f"total     {len(merged)} in dataset -> {args.out}")
-    print(f"note      distillation becomes worthwhile around a few hundred+ clean traces.")
+    print("note      distillation becomes worthwhile around a few hundred+ clean traces.")
 
 
 if __name__ == "__main__":

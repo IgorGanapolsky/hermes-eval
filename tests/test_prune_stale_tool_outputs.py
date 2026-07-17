@@ -10,7 +10,7 @@ import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "litellm"))
 
-from hermes_logger import PRUNE_STUB_PREFIX, stub_stale_tool_outputs  # noqa: E402
+from hermes_logger import PRUNE_STUB_PREFIX, stub_stale_tool_outputs
 
 
 def call(name, args, cid):
