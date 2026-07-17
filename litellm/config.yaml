@@ -107,6 +107,36 @@ model_list:
       timeout: 45
     model_info: {mode: chat, input_cost_per_token: 0, output_cost_per_token: 0, max_input_tokens: 131072, max_output_tokens: 8192}
 
+  # ---- OpenCode Zen FREE tier (opencode.ai gateway; account = Google SSO, key in
+  #      ~/.hermes/.env, NO billing enabled — free models only, $0). Wired 2026-07-17 as a
+  #      SECOND free pre-local rung in the auto-fallback chain (different provider infra
+  #      than the OpenRouter :free route, so one gateway outage can't kill both).
+  #      Paid Zen models (glm-5.2 $1.40/$4.40, kimi-k2.7-code $0.95/$4.00) and the Go
+  #      $10/mo flat sub (second glm-5.2 quota pool) unlock after Igor enables billing —
+  #      keep those OUT of auto-fallbacks like every per-token route. ----
+  - model_name: opencode-free
+    litellm_params:
+      model: openai/deepseek-v4-flash-free
+      api_base: https://opencode.ai/zen/v1
+      api_key: os.environ/OPENCODE_API_KEY
+      timeout: 45
+    model_info: {mode: chat, input_cost_per_token: 0, output_cost_per_token: 0, max_input_tokens: 131072, max_output_tokens: 8192}
+
+  # ---- Kimi K2.7 Code via the Moonshot platform (PER-TOKEN — existing key verified
+  #      2026-07-17: GET /models lists kimi-k2.7-code, 262K ctx). Top open-source coding
+  #      model (SWE-bench Verified 60.4%). OPT-IN by name like nemotron; NOT in the
+  #      auto-fallback chain — per-token must not silently replace the flat GLM sub.
+  #      A flat-rate membership route (api.kimi.com, sk-kimi-* console key) can be added
+  #      as `kimi-code` once a Kimi Code console key exists; THAT one is the
+  #      quota-diversification fallback candidate. ----
+  - model_name: kimi-coding
+    litellm_params:
+      model: openai/kimi-k2.7-code
+      api_base: https://api.moonshot.ai/v1
+      api_key: os.environ/MOONSHOT_API_KEY
+      timeout: 60
+    model_info: {mode: chat, max_input_tokens: 262144, max_output_tokens: 16384}
+
   # ---- Same subscription, lighter/faster model: GLM-5-Turbo (200K ctx). Verified live on the
   #      coding endpoint 2026-07-02. Also reasons heavily — give it ≥300 max_tokens. ----
   - model_name: glm-turbo
@@ -160,7 +190,7 @@ router_settings:
   allowed_fails: 2
   cooldown_time: 45                              # bench a dead node (the mini) for 45s
   enable_pre_call_checks: true                  # oversized prompt => bigger-ctx / cloud
-  fallbacks: [{"glm-coding": ["nemotron3-free", "hermes-local"]}, {"glm-turbo": ["nemotron3-free", "hermes-local"]}, {"hermes-local": ["nemotron3-free", "glm-coding"]}]   # ZERO-SPEND chain (2026-07-14): subscription GLM → Nemotron-3-Ultra-550B (:free, tool-calling, fails-hard) → local. Removed cloud-fallback (openrouter/z-ai/glm-5.2, PAID per-token) and nemotron (openai/nvidia/…-49b, METERED NIM) from every auto chain — those two paid routes ahead of local are what silently burned $175 on OpenRouter when the GLM sub hit its cap. nemotron3-free is a real tool-calling model, so it still satisfies "a real model must precede local" (a local model answers 200 with degraded output and short-circuits the router). If OpenRouter balance is negative, :free 402s and it falls straight to local — still $0. Paid routes (cloud-fallback, escalation=fugu-ultra) remain defined for MANUAL use only.
+  fallbacks: [{"glm-coding": ["nemotron3-free", "opencode-free", "hermes-local"]}, {"glm-turbo": ["nemotron3-free", "opencode-free", "hermes-local"]}, {"hermes-local": ["nemotron3-free", "opencode-free", "glm-coding"]}]   # ZERO-SPEND chain (2026-07-14): subscription GLM → Nemotron-3-Ultra-550B (:free, tool-calling, fails-hard) → local. Removed cloud-fallback (openrouter/z-ai/glm-5.2, PAID per-token) and nemotron (openai/nvidia/…-49b, METERED NIM) from every auto chain — those two paid routes ahead of local are what silently burned $175 on OpenRouter when the GLM sub hit its cap. nemotron3-free is a real tool-calling model, so it still satisfies "a real model must precede local" (a local model answers 200 with degraded output and short-circuits the router). If OpenRouter balance is negative, :free 402s and it falls straight to local — still $0. Paid routes (cloud-fallback, escalation=fugu-ultra) remain defined for MANUAL use only.
   context_window_fallbacks: [{"hermes-local": ["glm-coding"]}, {"glm-turbo": ["glm-coding"]}]   # >200K prompt => 1M-ctx subscription glm-coding (was: cloud-fallback, PAID — removed 2026-07-14)
   content_policy_fallbacks: [{"glm-coding": ["hermes-local"]}, {"glm-turbo": ["hermes-local"]}]   # provider content-policy refusal => local model (separate trigger class per LiteLLM reliability docs)
 
