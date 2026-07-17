@@ -58,11 +58,22 @@ def main():
         renderer = renderers.get_renderer("qwen3", tokenizer)
 
     def to_datum(messages):
+        # build_supervised_example -> (ModelInput, per-token weight tensor). Train on all
+        # assistant messages (distill the teacher's full tool-use behavior). Shift for
+        # next-token prediction: input = tokens[:-1], targets = tokens[1:].
         conv = [{"role": m["role"], "content": m.get("content") or ""} for m in messages]
-        tokens, weights = renderer.build_supervised_example(conv)
+        # LAST_ASSISTANT_MESSAGE satisfies the renderer extension property (warning-free)
+        # and fits our mostly single-turn user->assistant teacher traces.
+        model_input, weights = renderer.build_supervised_example(
+            conv, train_on_what=renderers.TrainOnWhat.LAST_ASSISTANT_MESSAGE
+        )
+        tokens = model_input.to_ints()
+        w = weights.tolist() if hasattr(weights, "tolist") else list(weights)
+        if len(tokens) < 2 or sum(w[1:]) == 0:
+            raise ValueError("no trainable assistant tokens")
         return tinker.Datum(
             model_input=tinker.ModelInput.from_ints(tokens[:-1]),
-            loss_fn_inputs={"target_tokens": tokens[1:], "weights": weights[1:]},
+            loss_fn_inputs={"target_tokens": tokens[1:], "weights": w[1:]},
         )
 
     data = []
