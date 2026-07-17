@@ -6,6 +6,7 @@ training steps on our own traffic traces -> a downloadable checkpoint path.
 Runs a handful of steps on a small slice (cents, not dollars). Full training is
 the same code with more data/steps. Reads TINKER_API_KEY from env.
 """
+import contextlib
 import json
 import os
 import sys
@@ -91,10 +92,8 @@ def main():
         fb = fut.result()
         opt.result()
         loss = None
-        try:
+        with contextlib.suppress(Exception):
             loss = float(fb.metrics.get("loss:sum", 0)) / max(1, float(fb.metrics.get("loss:count", 1)))
-        except Exception:
-            pass
         print(f"[proof] step {step+1}/{STEPS} done | loss~{loss}")
 
     state = tc.save_state(name="hermes-distill-proof")
