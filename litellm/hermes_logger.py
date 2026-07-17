@@ -81,6 +81,81 @@ def raise_glm_min_max_tokens(kwargs, floor=None):
     return kwargs
 
 
+# ---- Stale-tool-output pruning (deterministic, idempotent) ------------------------
+# Data science on the live log (2026-07-17, rotation 07-10→07-17: 1,911 calls, 23.17M
+# prompt tokens): on the biggest GLM calls (140K+ tokens, 420+ messages) tool outputs
+# are 57% of prompt chars, and only the newest same-key tool result is still
+# trustworthy. Deterministic middleware (safe-prompt-pruning-layer pattern): OUTSIDE a
+# protected recency window, replace — never delete, the assistant tool_calls ↔ tool
+# tool_call_id pairing is schema-required — stale tool-message CONTENT with a one-line
+# stub. Two rules, both idempotent and pure functions of the message list:
+#   1. superseded: a LATER assistant tool_call re-issues the same (name, args) key
+#   2. aged: the message is outside the window and its content is large
+# Subscription-GLM deployments only (same targeting as the max_tokens floor); the
+# in-place mutation intentionally carries to a subsequent local-fallback attempt,
+# where a smaller context window benefits even more. Kill switch:
+# HERMES_PRUNE_TOOL_OUTPUTS=0.
+PRUNE_ENABLED = os.environ.get("HERMES_PRUNE_TOOL_OUTPUTS", "1") != "0"
+PRUNE_PROTECT_LAST_N = int(os.environ.get("HERMES_PRUNE_PROTECT_LAST_N", "60"))
+PRUNE_MIN_CHARS = int(os.environ.get("HERMES_PRUNE_MIN_CHARS", "600"))
+PRUNE_STUB_PREFIX = "[pruned stale tool output"
+
+
+def _tool_call_keys(messages):
+    """tool_call_id -> (name, whitespace-normalized arguments) across all assistant
+    tool_calls, plus the LAST message index at which each key was issued."""
+    by_id, last_index_by_key = {}, {}
+    for i, m in enumerate(messages):
+        if not isinstance(m, dict) or m.get("role") != "assistant":
+            continue
+        for c in m.get("tool_calls") or []:
+            if not isinstance(c, dict):
+                continue
+            fn = c.get("function") or {}
+            if not isinstance(fn, dict):
+                continue
+            key = (str(fn.get("name")), " ".join(str(fn.get("arguments") or "").split()))
+            cid = c.get("id")
+            if cid:
+                by_id[cid] = key
+            last_index_by_key[key] = i
+    return by_id, last_index_by_key
+
+
+def stub_stale_tool_outputs(kwargs, protect_last_n=None, min_chars=None):
+    """Stub stale role:"tool" message content on subscription-GLM deployments. Pure
+    helper (unit-testable); mutates messages in place and returns kwargs."""
+    if not PRUNE_ENABLED:
+        return kwargs
+    protect_last_n = PRUNE_PROTECT_LAST_N if protect_last_n is None else protect_last_n
+    min_chars = PRUNE_MIN_CHARS if min_chars is None else min_chars
+    model, dep_model = _model_strings(kwargs)
+    if model.startswith("openrouter/") or dep_model.startswith("openrouter/"):
+        return kwargs
+    if "glm" not in model.lower() and "glm" not in dep_model.lower():
+        return kwargs
+    msgs = kwargs.get("messages")
+    if not isinstance(msgs, list) or len(msgs) <= protect_last_n:
+        return kwargs
+    by_id, last_index_by_key = _tool_call_keys(msgs)
+    cutoff = len(msgs) - protect_last_n
+    for i, m in enumerate(msgs[:cutoff]):
+        if not isinstance(m, dict) or m.get("role") != "tool":
+            continue
+        content = m.get("content")
+        if not isinstance(content, str) or content.startswith(PRUNE_STUB_PREFIX):
+            continue
+        key = by_id.get(m.get("tool_call_id"))
+        superseded = key is not None and last_index_by_key.get(key, -1) > i
+        if superseded or len(content) >= min_chars:
+            reason = "superseded by a newer identical call" if superseded else "aged out"
+            m["content"] = (
+                f"{PRUNE_STUB_PREFIX}: {reason}; {len(content)} chars elided — "
+                "re-run the tool if this result is needed]"
+            )
+    return kwargs
+
+
 # ---- Alerting -------------------------------------------------------------------
 # The callback already sees every served call; make it also PAGE on the two RARE,
 # HARD, ACTIONABLE events that used to be silent (found out only via garbage output,
@@ -307,6 +382,8 @@ def build_record(kwargs, response_obj, latency_s, status):
 
 class HermesJSONLLogger(CustomLogger):
     async def async_pre_call_deployment_hook(self, kwargs, call_type):
+        with contextlib.suppress(Exception):  # each guard isolated: one failing must not skip others
+            stub_stale_tool_outputs(kwargs)  # stale tool-output prune (GLM quota headroom)
         with contextlib.suppress(Exception):  # never break a request because of the guards
             raise_glm_min_max_tokens(kwargs)  # GLM reasoning floor (empty-content fix)
             return clamp_openrouter_max_tokens(kwargs)  # openrouter cap (last-resort 402 fix)
