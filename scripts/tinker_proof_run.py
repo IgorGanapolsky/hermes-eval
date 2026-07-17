@@ -11,6 +11,7 @@ import json
 import os
 import sys
 
+os.environ.setdefault("HF_HUB_DISABLE_IMPLICIT_TOKEN", "1")
 import tinker
 
 DATA = os.environ.get("TINKER_PROOF_DATA", "/tmp/tinker-conversations.jsonl")
@@ -36,19 +37,19 @@ def load_examples(path, n):
 
 
 def main():
-    print(f"[proof] tinker {getattr(tinker, '__version__', '?')} | data={DATA}")
+    print(f"[proof] tinker {getattr(tinker, '__version__', '?')} | data={DATA}", flush=True)
     sc = tinker.ServiceClient()
     caps = sc.get_server_capabilities()
     models = [m.model_name for m in caps.supported_models]
     assert any(BASE in m for m in models), f"{BASE} not in server catalog"
-    print(f"[proof] auth OK — {len(models)} models, {BASE} available")
+    print(f"[proof] auth OK — {len(models)} models, {BASE} available", flush=True)
 
     exs = load_examples(DATA, N)
     assert exs, f"no usable conversations in {DATA}"
-    print(f"[proof] loaded {len(exs)} real traffic conversations")
+    print(f"[proof] loaded {len(exs)} real traffic conversations", flush=True)
 
     tc = sc.create_lora_training_client(base_model=BASE, rank=16)
-    print(f"[proof] LoRA training client created (rank=16) on {BASE}")
+    print(f"[proof] LoRA training client created (rank=16) on {BASE}", flush=True)
 
     tokenizer = tc.get_tokenizer()
     from tinker_cookbook import renderers
@@ -84,9 +85,12 @@ def main():
         except Exception as e:
             print(f"[proof]   skip one (render): {e}")
     assert data, "no rendered data"
-    print(f"[proof] rendered {len(data)} training examples")
+    print(f"[proof] rendered {len(data)} training examples", flush=True)
 
     for step in range(STEPS):
+        # The forward_backward + optim_step run on Tinker's cloud GPUs and take
+        # ~20-60s each — print BEFORE so a slow step never looks like a hang.
+        print(f"[proof] step {step+1}/{STEPS} training on Tinker cloud (~20-60s)…", flush=True)
         fut = tc.forward_backward(data, loss_fn="cross_entropy")
         opt = tc.optim_step(tinker.AdamParams(learning_rate=1e-4))
         fb = fut.result()
@@ -94,7 +98,7 @@ def main():
         loss = None
         with contextlib.suppress(Exception):
             loss = float(fb.metrics.get("loss:sum", 0)) / max(1, float(fb.metrics.get("loss:count", 1)))
-        print(f"[proof] step {step+1}/{STEPS} done | loss~{loss}")
+        print(f"[proof] step {step+1}/{STEPS} done | loss~{loss}", flush=True)
 
     state = tc.save_state(name="hermes-distill-proof")
     path = state.result().path
