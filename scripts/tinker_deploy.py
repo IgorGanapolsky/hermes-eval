@@ -96,8 +96,10 @@ def train_checkpoint():
         fut = tc.forward_backward(data, loss_fn="cross_entropy")
         tc.optim_step(tinker.AdamParams(learning_rate=1e-4)).result()
         fut.result()
-    path = tc.save_state(name="hermes-distill-deploy").result().path
-    log(f"checkpoint: {path}")
+    # save_weights_for_sampler → downloadable INFERENCE weights (save_state is the
+    # optimizer/training state and its path is NOT accepted by weights.download).
+    path = tc.save_weights_for_sampler(name="hermes-distill-deploy").result().path
+    log(f"sampler-weights checkpoint: {path}")
     return path
 
 
