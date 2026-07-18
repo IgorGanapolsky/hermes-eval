@@ -11,7 +11,18 @@ import json
 import os
 import sys
 
-os.environ.setdefault("HF_HUB_DISABLE_IMPLICIT_TOKEN", "1")
+# Silence the cosmetic "Please set a HF_TOKEN …" warning huggingface_hub emits on
+# every unauthenticated tokenizer fetch (it looks like an error but is only about
+# rate limits). Set BEFORE any hf import; also lower the logger as a belt-and-suspenders.
+os.environ.setdefault("HF_HUB_VERBOSITY", "error")
+os.environ.setdefault("HF_HUB_DISABLE_TELEMETRY", "1")
+import logging as _logging
+
+for _n in ("huggingface_hub", "huggingface_hub.utils._auth", "huggingface_hub.file_download"):
+    _logging.getLogger(_n).setLevel(_logging.ERROR)
+import warnings as _warnings
+
+_warnings.filterwarnings("ignore", message=".*HF_TOKEN.*")
 import tinker
 
 DATA = os.environ.get("TINKER_PROOF_DATA", "/tmp/tinker-conversations.jsonl")
