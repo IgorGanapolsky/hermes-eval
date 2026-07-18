@@ -8,22 +8,21 @@ the same code with more data/steps. Reads TINKER_API_KEY from env.
 """
 import contextlib
 import json
+import logging
 import os
 import sys
+import warnings
 
 # Silence the cosmetic "Please set a HF_TOKEN …" warning huggingface_hub emits on
 # every unauthenticated tokenizer fetch (it looks like an error but is only about
-# rate limits). Set BEFORE any hf import; also lower the logger as a belt-and-suspenders.
+# rate limits). Must run BEFORE importing tinker (which pulls in huggingface_hub).
 os.environ.setdefault("HF_HUB_VERBOSITY", "error")
 os.environ.setdefault("HF_HUB_DISABLE_TELEMETRY", "1")
-import logging as _logging
-
 for _n in ("huggingface_hub", "huggingface_hub.utils._auth", "huggingface_hub.file_download"):
-    _logging.getLogger(_n).setLevel(_logging.ERROR)
-import warnings as _warnings
+    logging.getLogger(_n).setLevel(logging.ERROR)
+warnings.filterwarnings("ignore", message=".*HF_TOKEN.*")
 
-_warnings.filterwarnings("ignore", message=".*HF_TOKEN.*")
-import tinker
+import tinker  # noqa: E402 — deliberately after the HF env/logger setup above
 
 DATA = os.environ.get("TINKER_PROOF_DATA", "/tmp/tinker-conversations.jsonl")
 BASE = "Qwen/Qwen3-8B"
