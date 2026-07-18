@@ -121,13 +121,20 @@ def main():
     modelfile = os.path.join(WORK, "Modelfile")
     with open(modelfile, "w") as f:
         f.write(f"FROM {merged_dir}\n")
-    cmd = ["ollama", "create", OLLAMA_NAME, "--experimental"]
-    # ollama create supports -q/--quantize on import; try quantized, fall back to f16.
+    # ollama quantizes ONLY during safetensors import, and the -q value is dropped
+    # unless it precedes --experimental (verified 2026-07-18: `--experimental -q q4_K_M`
+    # imported f16; `-q q4_K_M --experimental` quantized correctly). Order matters.
     log(f"ollama create {OLLAMA_NAME} (quantize {QUANT})…")
-    r = subprocess.run([*cmd, "-q", QUANT, "-f", modelfile], capture_output=True, text=True)
+    r = subprocess.run(
+        ["ollama", "create", OLLAMA_NAME, "-q", QUANT, "--experimental", "-f", modelfile],
+        capture_output=True, text=True,
+    )
     if r.returncode != 0:
         log(f"quantized create failed ({r.stderr.strip()[:120]}); retrying f16…")
-        r = subprocess.run([*cmd, "-f", modelfile], capture_output=True, text=True)
+        r = subprocess.run(
+            ["ollama", "create", OLLAMA_NAME, "--experimental", "-f", modelfile],
+            capture_output=True, text=True,
+        )
         if r.returncode != 0:
             log(f"FAILED: ollama create: {r.stderr.strip()[:200]}")
             sys.exit(1)
