@@ -28,6 +28,10 @@ fi
 if grep -q '^OPENCODE_API_KEY=' "$HOME/.hermes/.env" 2>/dev/null; then
   export OPENCODE_API_KEY="$(grep '^OPENCODE_API_KEY=' "$HOME/.hermes/.env" | tail -1 | cut -d= -f2-)"
 fi
+# Together.ai serverless key (per-token; opt-in-by-name routes together-inkling/together-glm).
+if grep -q '^TOGETHER_API_KEY=' "$HOME/.hermes/.env" 2>/dev/null; then
+  export TOGETHER_API_KEY="$(grep '^TOGETHER_API_KEY=' "$HOME/.hermes/.env" | tail -1 | cut -d= -f2-)"
+fi
 export HERMES_LOG_PATH="${HERMES_LOG_PATH:-$HOME/.hermes/litellm-logs/traffic.jsonl}"
 LITELLM_BIN="${LITELLM_BIN:-$HOME/.local/bin/litellm}"
 exec "$LITELLM_BIN" --config "$HERE/config.yaml" --port "${LITELLM_PORT:-4010}"
