@@ -215,6 +215,31 @@ model_list:
       api_key: os.environ/OPENROUTER_API_KEY
     model_info: {mode: chat}
 
+  # ---- Together.ai serverless (PER-TOKEN, key verified live 2026-07-19: 272 models,
+  #      272-model catalog incl. Inkling/GLM-5.2/Kimi/DeepSeek). OPT-IN BY NAME ONLY —
+  #      per-token, so kept OUT of every auto-fallback chain like kimi-coding/nemotron.
+  #      `together-inkling` is the Inkling escalation route: $1.00/$4.05 per 1M —
+  #      CHEAPER than the first-party Tinker route (see fleet-autonomy-research-2026-07).
+  #      Inkling is a REASONING model → give it ≥900 max_tokens or content returns empty. ----
+  - model_name: together-inkling
+    litellm_params:
+      model: openai/thinkingmachines/Inkling
+      api_base: https://api.together.xyz/v1
+      api_key: os.environ/TOGETHER_API_KEY
+      timeout: 90
+    model_info: {mode: chat, max_input_tokens: 262144, max_output_tokens: 8192}
+
+  # ---- Together GLM-5.2: SAME model as the flat z.ai/OpenCode routes but a THIRD,
+  #      independent quota pool → a manual cross-provider fallback for the documented
+  #      triple-quota-exhaustion day (2026-07-12). Per-token → opt-in by name, NOT auto. ----
+  - model_name: together-glm
+    litellm_params:
+      model: openai/zai-org/GLM-5.2
+      api_base: https://api.together.xyz/v1
+      api_key: os.environ/TOGETHER_API_KEY
+      timeout: 60
+    model_info: {mode: chat, max_input_tokens: 200000, max_output_tokens: 128000}
+
 router_settings:
   routing_strategy: latency-based-routing       # auto-prefers the fastest live box
   num_retries: 1                                 # 1 retry (was 2): a down subscription endpoint won't recover on retry, so fewer retries => faster failover to local. Transient blips still get one retry.
