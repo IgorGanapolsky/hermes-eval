@@ -163,8 +163,8 @@ doctor.
 
 ```text
 uv run ruff check --output-format=concise .  -> pass
-uv run ruff format --check .                 -> 24 files already formatted
-uv run pytest                                -> 77 passed
+uv run ruff format --check .                 -> 26 files already formatted
+uv run pytest                                -> 80 passed
 ```
 
 No raw private validation row is logged by the training path. No candidate alias is promoted by
