@@ -15,53 +15,87 @@ Env: TINKER_API_KEY (req), TINKER_DEPLOY_DATA, TINKER_DEPLOY_N/STEPS,
 TINKER_DEPLOY_MODEL (ollama name), TINKER_DEPLOY_QUANT (e.g. q4_K_M), TINKER_CHECKPOINT
 (reuse instead of training), TINKER_DEPLOY_WORK (scratch dir).
 """
+
 import logging
 import os
 import subprocess
 import sys
 import time
 
+from tinker_training_data import (
+    DEFAULT_HOLDOUT_RATIO,
+    DEFAULT_SPLIT_SEED,
+    load_split_conversations,
+    render_with_context_limit,
+    to_renderer_messages,
+)
+
 os.environ.setdefault("HF_HUB_VERBOSITY", "error")
 for _n in ("huggingface_hub", "huggingface_hub.utils._auth", "huggingface_hub.file_download"):
     logging.getLogger(_n).setLevel(logging.ERROR)
 
-import tinker  # noqa: E402 — after HF env setup
-
 BASE = "Qwen/Qwen3-8B"
+SMOKE_SENTINEL = "TINKER-DEPLOY-OK"
 DATA = os.environ.get("TINKER_DEPLOY_DATA", "/tmp/tinker-conversations.jsonl")
 N = int(os.environ.get("TINKER_DEPLOY_N", "64"))
 STEPS = int(os.environ.get("TINKER_DEPLOY_STEPS", "8"))
 OLLAMA_NAME = os.environ.get("TINKER_DEPLOY_MODEL", "qwen3-hermes-tinker")
 QUANT = os.environ.get("TINKER_DEPLOY_QUANT", "q4_K_M")
 WORK = os.environ.get("TINKER_DEPLOY_WORK", os.path.expanduser("~/models/tinker-deploy"))
+HOLDOUT_RATIO = float(os.environ.get("TINKER_HOLDOUT_RATIO", str(DEFAULT_HOLDOUT_RATIO)))
+SPLIT_SEED = os.environ.get("TINKER_SPLIT_SEED", DEFAULT_SPLIT_SEED)
+MAX_CONTEXT_TOKENS = int(os.environ.get("TINKER_MAX_CONTEXT_TOKENS", "32768"))
+MIN_RENDER_FRACTION = float(os.environ.get("TINKER_MIN_RENDER_FRACTION", "0.95"))
 
 
 def log(msg):
     print(f"[deploy] {msg}", flush=True)
 
 
+def require_exact_smoke_output(returncode: int, stdout: str) -> str:
+    """Reject command failures and prompt-echo/extra-text false positives."""
+
+    output = (stdout or "").strip()
+    if returncode != 0:
+        raise RuntimeError(f"Ollama smoke process exited {returncode}")
+    if output != SMOKE_SENTINEL:
+        raise RuntimeError("Ollama smoke response did not exactly match the sentinel")
+    return output
+
+
+def require_render_coverage(rendered: int, selected: int) -> None:
+    if not 0 < MIN_RENDER_FRACTION <= 1:
+        raise RuntimeError("TINKER_MIN_RENDER_FRACTION must be in (0, 1]")
+    if selected < 1 or rendered / selected < MIN_RENDER_FRACTION:
+        raise RuntimeError(
+            f"render coverage {rendered}/{selected} is below {MIN_RENDER_FRACTION:.0%}"
+        )
+
+
 def train_checkpoint():
+    import tinker
     from tinker_cookbook import renderers
+    from tinker_cookbook.renderers.base import ToolCall
 
     sc = tinker.ServiceClient()
     caps = sc.get_server_capabilities()
     assert any(BASE in m.model_name for m in caps.supported_models), f"{BASE} unavailable"
     log(f"auth OK; training LoRA on {BASE} (N={N}, steps={STEPS})")
 
-    rows = []
-    with open(DATA) as f:
-        import json
-
-        for line in f:
-            try:
-                obj = json.loads(line)
-            except Exception:
-                continue
-            if obj.get("messages") and len(obj["messages"]) >= 2:
-                rows.append(obj["messages"])
-            if len(rows) >= N:
-                break
+    selection = load_split_conversations(
+        DATA,
+        split="train",
+        limit=N,
+        holdout_ratio=HOLDOUT_RATIO,
+        seed=SPLIT_SEED,
+    )
+    rows = selection.conversations
     assert rows, f"no data in {DATA}"
+    log(
+        f"selected {len(rows)} train conversations "
+        f"(reserved holdout={selection.holdout_rows}/{selection.usable_rows}; "
+        f"tool targets={selection.selected_tool_targets})"
+    )
 
     tc = sc.create_lora_training_client(base_model=BASE, rank=32)
     tok = tc.get_tokenizer()
@@ -72,12 +106,17 @@ def train_checkpoint():
         rend = renderers.get_renderer("qwen3", tok)
 
     data = []
+    context_pruned = 0
     for msgs in rows:
         try:
-            conv = [{"role": m["role"], "content": m.get("content") or ""} for m in msgs]
-            mi, w = rend.build_supervised_example(
-                conv, train_on_what=renderers.TrainOnWhat.LAST_ASSISTANT_MESSAGE
+            conv = to_renderer_messages(msgs, ToolCall.model_validate)
+            rendered = render_with_context_limit(
+                rend,
+                conv,
+                train_on_what=renderers.TrainOnWhat.LAST_ASSISTANT_MESSAGE,
+                max_tokens=MAX_CONTEXT_TOKENS,
             )
+            mi, w = rendered.model_input, rendered.weights
             toks = mi.to_ints()
             wl = w.tolist() if hasattr(w, "tolist") else list(w)
             if len(toks) >= 2 and sum(wl[1:]) > 0:
@@ -87,12 +126,16 @@ def train_checkpoint():
                         loss_fn_inputs={"target_tokens": toks[1:], "weights": wl[1:]},
                     )
                 )
+                context_pruned += int(rendered.dropped_messages > 0)
         except Exception:
             continue
-    assert data, "no rendered data"
-    log(f"rendered {len(data)} examples; training…")
+    require_render_coverage(len(data), len(rows))
+    log(
+        f"rendered {len(data)} examples "
+        f"(context-pruned={context_pruned}; max_tokens={MAX_CONTEXT_TOKENS}); training…"
+    )
     for s in range(STEPS):
-        log(f"step {s+1}/{STEPS} on Tinker cloud (~20-60s)…")
+        log(f"step {s + 1}/{STEPS} on Tinker cloud (~20-60s)…")
         fut = tc.forward_backward(data, loss_fn="cross_entropy")
         tc.optim_step(tinker.AdamParams(learning_rate=1e-4)).result()
         fut.result()
@@ -116,7 +159,7 @@ def main():
     log(f"merging LoRA into {BASE} -> {merged_dir} (downloads ~16GB base on first run)…")
     t0 = time.time()
     weights.build_hf_model(base_model=BASE, adapter_path=adapter_dir, output_path=merged_dir)
-    log(f"merged HF model ready ({time.time()-t0:.0f}s)")
+    log(f"merged HF model ready ({time.time() - t0:.0f}s)")
 
     modelfile = os.path.join(WORK, "Modelfile")
     with open(modelfile, "w") as f:
@@ -127,13 +170,15 @@ def main():
     log(f"ollama create {OLLAMA_NAME} (quantize {QUANT})…")
     r = subprocess.run(
         ["ollama", "create", OLLAMA_NAME, "-q", QUANT, "--experimental", "-f", modelfile],
-        capture_output=True, text=True,
+        capture_output=True,
+        text=True,
     )
     if r.returncode != 0:
         log(f"quantized create failed ({r.stderr.strip()[:120]}); retrying f16…")
         r = subprocess.run(
             ["ollama", "create", OLLAMA_NAME, "--experimental", "-f", modelfile],
-            capture_output=True, text=True,
+            capture_output=True,
+            text=True,
         )
         if r.returncode != 0:
             log(f"FAILED: ollama create: {r.stderr.strip()[:200]}")
@@ -142,14 +187,19 @@ def main():
 
     log("smoke-testing the new model…")
     sm = subprocess.run(
-        ["ollama", "run", OLLAMA_NAME, "Reply with exactly: TINKER-DEPLOY-OK"],
-        capture_output=True, text=True, timeout=180,
+        ["ollama", "run", OLLAMA_NAME, f"Reply with exactly: {SMOKE_SENTINEL}"],
+        capture_output=True,
+        text=True,
+        timeout=180,
     )
-    out = (sm.stdout or "").strip()
+    out = require_exact_smoke_output(sm.returncode, sm.stdout or "")
     log(f"model replied: {out[:80]!r}")
     print(f"[deploy] DONE — runnable model '{OLLAMA_NAME}' in Ollama.", flush=True)
-    print(f"[deploy] wire into the gateway: add a model_name block pointing at "
-          f"ollama_chat/{OLLAMA_NAME}", flush=True)
+    print(
+        f"[deploy] wire into the gateway: add a model_name block pointing at "
+        f"ollama_chat/{OLLAMA_NAME}",
+        flush=True,
+    )
 
 
 if __name__ == "__main__":
