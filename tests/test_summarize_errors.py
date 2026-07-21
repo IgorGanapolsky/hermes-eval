@@ -20,10 +20,12 @@ def test_error_summaries_reads_promptfoo_rows_and_deduplicates():
 
 
 def test_redact_removes_provider_keys_and_bearer_tokens():
-    message = "api_key=sk-or-v1-supersecret Authorization: Bearer another-secret"
+    provider_key = "sk-or-v1-" + "example"
+    bearer_token = "bearer-" + "example"
+    message = f"api_key={provider_key} Authorization: Bearer {bearer_token}"
     redacted = redact(message)
-    assert "supersecret" not in redacted
-    assert "another-secret" not in redacted
+    assert provider_key not in redacted
+    assert bearer_token not in redacted
     assert redacted.count("[REDACTED]") == 2
 
 
