@@ -382,7 +382,9 @@ def build_record(kwargs, response_obj, latency_s, status):
 
 class HermesJSONLLogger(CustomLogger):
     async def async_pre_call_deployment_hook(self, kwargs, call_type):
-        with contextlib.suppress(Exception):  # each guard isolated: one failing must not skip others
+        with contextlib.suppress(
+            Exception
+        ):  # each guard isolated: one failing must not skip others
             stub_stale_tool_outputs(kwargs)  # stale tool-output prune (GLM quota headroom)
         with contextlib.suppress(Exception):  # never break a request because of the guards
             raise_glm_min_max_tokens(kwargs)  # GLM reasoning floor (empty-content fix)
