@@ -18,6 +18,8 @@ TINKER_DEPLOY_MODEL (ollama name), TINKER_DEPLOY_QUANT (e.g. q4_K_M), TINKER_CHE
 
 import logging
 import os
+import pathlib
+import shutil
 import subprocess
 import sys
 import time
@@ -42,6 +44,13 @@ STEPS = int(os.environ.get("TINKER_DEPLOY_STEPS", "8"))
 OLLAMA_NAME = os.environ.get("TINKER_DEPLOY_MODEL", "qwen3-hermes-tinker")
 QUANT = os.environ.get("TINKER_DEPLOY_QUANT", "q4_K_M")
 WORK = os.environ.get("TINKER_DEPLOY_WORK", os.path.expanduser("~/models/tinker-deploy"))
+OLLAMA_BIN = os.environ.get("TINKER_OLLAMA_BIN", "ollama")
+LLAMA_CPP_REPO = "https://github.com/ggml-org/llama.cpp.git"
+# Match the pinned Homebrew llama.cpp toolchain used by the Hermes fleet. The
+# converter is checked out by immutable revision so a deploy cannot silently run
+# arbitrary new conversion code after training has already completed.
+LLAMA_CPP_REV = "b15ca938ad00aa6b3ee6c2edda7363fd02826b18"
+LLAMA_CPP_TAG = "b10050"
 HOLDOUT_RATIO = float(os.environ.get("TINKER_HOLDOUT_RATIO", str(DEFAULT_HOLDOUT_RATIO)))
 SPLIT_SEED = os.environ.get("TINKER_SPLIT_SEED", DEFAULT_SPLIT_SEED)
 MAX_CONTEXT_TOKENS = int(os.environ.get("TINKER_MAX_CONTEXT_TOKENS", "32768"))
@@ -50,6 +59,158 @@ MIN_RENDER_FRACTION = float(os.environ.get("TINKER_MIN_RENDER_FRACTION", "0.95")
 
 def log(msg):
     print(f"[deploy] {msg}", flush=True)
+
+
+def command_failure(result):
+    """Return a useful bounded error without losing the final panic/root cause."""
+    output = "\n".join(part.strip() for part in (result.stdout, result.stderr) if part.strip())
+    return output[-2000:] or f"exit {result.returncode} with no output"
+
+
+def run_checked(args, *, env=None, label):
+    result = subprocess.run(args, capture_output=True, text=True, env=env)
+    if result.returncode != 0:
+        raise RuntimeError(f"{label}: {command_failure(result)}")
+    return result
+
+
+def verify_llama_cpp_checkout(source, converter, git):
+    revision = run_checked(
+        [git, "-C", str(source), "rev-parse", "HEAD"],
+        label="llama.cpp revision check failed",
+    ).stdout.strip()
+    if revision != LLAMA_CPP_REV:
+        raise RuntimeError(
+            f"llama.cpp revision mismatch: expected {LLAMA_CPP_REV}, received {revision}"
+        )
+    if not converter.is_file():
+        raise RuntimeError(f"pinned llama.cpp converter missing after revision check: {converter}")
+    return converter
+
+
+def ensure_llama_cpp_converter():
+    override = os.environ.get("TINKER_HF_TO_GGUF")
+    if override:
+        converter = pathlib.Path(override).expanduser()
+        if not converter.is_file():
+            raise RuntimeError(f"TINKER_HF_TO_GGUF is not a file: {converter}")
+        return converter
+
+    source = pathlib.Path(WORK) / f"llama.cpp-{LLAMA_CPP_TAG}"
+    converter = source / "convert_hf_to_gguf.py"
+    git = shutil.which("git")
+    if not git:
+        raise RuntimeError("git is required to fetch the pinned llama.cpp converter")
+    if converter.is_file():
+        return verify_llama_cpp_checkout(source, converter, git)
+    if source.exists():
+        raise RuntimeError(f"incomplete pinned llama.cpp checkout: {source}")
+
+    log(f"fetching pinned llama.cpp converter {LLAMA_CPP_TAG} ({LLAMA_CPP_REV[:12]})…")
+    run_checked(
+        [
+            git,
+            "clone",
+            "--depth",
+            "1",
+            "--branch",
+            LLAMA_CPP_TAG,
+            LLAMA_CPP_REPO,
+            str(source),
+        ],
+        label="llama.cpp clone failed",
+    )
+    return verify_llama_cpp_checkout(source, converter, git)
+
+
+def create_via_gguf(merged_dir):
+    """Recover from Ollama's experimental MLX safetensors quantizer via GGUF."""
+    converter = ensure_llama_cpp_converter()
+    quantize = os.environ.get("TINKER_LLAMA_QUANTIZE") or shutil.which("llama-quantize")
+    if not quantize:
+        raise RuntimeError("llama-quantize is required for the GGUF fallback")
+
+    gguf_dir = pathlib.Path(WORK) / "gguf-current"
+    gguf_dir.mkdir(parents=True, exist_ok=True)
+    bf16 = gguf_dir / "qwen3-hermes-tinker-bf16.gguf"
+    quantized = gguf_dir / f"qwen3-hermes-tinker-{QUANT.lower()}.gguf"
+    gguf_modelfile = gguf_dir / "Modelfile"
+    for generated in (bf16, quantized, gguf_modelfile):
+        if generated.exists():
+            generated.unlink()
+
+    converter_root = converter.parent
+    env = os.environ.copy()
+    gguf_python = str(converter_root / "gguf-py")
+    env["PYTHONPATH"] = (
+        f"{gguf_python}{os.pathsep}{env['PYTHONPATH']}" if env.get("PYTHONPATH") else gguf_python
+    )
+    log(f"converting merged model to BF16 GGUF -> {bf16} …")
+    run_checked(
+        [
+            sys.executable,
+            str(converter),
+            str(merged_dir),
+            "--outfile",
+            str(bf16),
+            "--outtype",
+            "bf16",
+        ],
+        env=env,
+        label="HF to GGUF conversion failed",
+    )
+    log(f"quantizing GGUF to {QUANT} -> {quantized} …")
+    run_checked(
+        [quantize, str(bf16), str(quantized), QUANT],
+        label="llama.cpp quantization failed",
+    )
+    gguf_modelfile.write_text(f"FROM {quantized}\n", encoding="utf-8")
+    log(f"ollama create {OLLAMA_NAME} from GGUF…")
+    run_checked(
+        [OLLAMA_BIN, "create", OLLAMA_NAME, "--file", str(gguf_modelfile)],
+        label="Ollama GGUF import failed",
+    )
+
+
+def create_ollama_model(merged_dir, modelfile):
+    log(f"ollama create {OLLAMA_NAME} (quantize {QUANT})…")
+    result = subprocess.run(
+        [OLLAMA_BIN, "create", OLLAMA_NAME, "-q", QUANT, "--experimental", "-f", modelfile],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode == 0:
+        return
+    log(
+        "experimental safetensors quantization failed; "
+        f"using pinned llama.cpp GGUF fallback: {command_failure(result)}"
+    )
+    create_via_gguf(merged_dir)
+
+
+def smoke_and_alias_model():
+    log("smoke-testing the new model…")
+    smoke_env = os.environ.copy()
+    smoke_env["OLLAMA_KEEP_ALIVE"] = "0"
+    smoke_timeout = int(os.environ.get("TINKER_DEPLOY_SMOKE_TIMEOUT", "180"))
+    result = subprocess.run(
+        [OLLAMA_BIN, "run", OLLAMA_NAME, f"Reply with exactly: {SMOKE_SENTINEL}"],
+        capture_output=True,
+        text=True,
+        timeout=smoke_timeout,
+        env=smoke_env,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(f"Ollama smoke failed: {command_failure(result)}")
+    output = require_exact_smoke_output(result.returncode, result.stdout or "")
+    log(f"model replied: {output[:80]!r}")
+    if ":" not in OLLAMA_NAME:
+        alias = f"{OLLAMA_NAME}:q4"
+        run_checked(
+            [OLLAMA_BIN, "cp", OLLAMA_NAME, alias],
+            label=f"Ollama alias creation failed ({alias})",
+        )
+        log(f"validated Q4 alias updated: {alias}")
 
 
 def require_exact_smoke_output(returncode: int, stdout: str) -> str:
@@ -164,36 +325,13 @@ def main():
     modelfile = os.path.join(WORK, "Modelfile")
     with open(modelfile, "w") as f:
         f.write(f"FROM {merged_dir}\n")
-    # ollama quantizes ONLY during safetensors import, and the -q value is dropped
-    # unless it precedes --experimental (verified 2026-07-18: `--experimental -q q4_K_M`
-    # imported f16; `-q q4_K_M --experimental` quantized correctly). Order matters.
-    log(f"ollama create {OLLAMA_NAME} (quantize {QUANT})…")
-    r = subprocess.run(
-        ["ollama", "create", OLLAMA_NAME, "-q", QUANT, "--experimental", "-f", modelfile],
-        capture_output=True,
-        text=True,
-    )
-    if r.returncode != 0:
-        log(f"quantized create failed ({r.stderr.strip()[:120]}); retrying f16…")
-        r = subprocess.run(
-            ["ollama", "create", OLLAMA_NAME, "--experimental", "-f", modelfile],
-            capture_output=True,
-            text=True,
-        )
-        if r.returncode != 0:
-            log(f"FAILED: ollama create: {r.stderr.strip()[:200]}")
-            sys.exit(1)
+    # Ollama's experimental MLX safetensors quantizer can panic on Apple Silicon
+    # (0.30.10: "There is no Stream(gpu, 1) in current thread"). Never silently
+    # fall back to a 16GB BF16 Ollama model on a 24GB host: recover through the
+    # documented, pinned llama.cpp GGUF conversion path instead.
+    create_ollama_model(merged_dir, modelfile)
     log(f"ollama model created: {OLLAMA_NAME}")
-
-    log("smoke-testing the new model…")
-    sm = subprocess.run(
-        ["ollama", "run", OLLAMA_NAME, f"Reply with exactly: {SMOKE_SENTINEL}"],
-        capture_output=True,
-        text=True,
-        timeout=180,
-    )
-    out = require_exact_smoke_output(sm.returncode, sm.stdout or "")
-    log(f"model replied: {out[:80]!r}")
+    smoke_and_alias_model()
     print(f"[deploy] DONE — runnable model '{OLLAMA_NAME}' in Ollama.", flush=True)
     print(
         f"[deploy] wire into the gateway: add a model_name block pointing at "
