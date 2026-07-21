@@ -7,7 +7,7 @@ import pytest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "eval"))
 
-from wrap_profile_run import extract_results, load_holdout_ids
+from wrap_profile_run import extract_results, load_holdout_ids, validate_result_ids
 
 
 def test_extract_results_normalizes_promptfoo_rows_and_errors():
@@ -84,3 +84,22 @@ def test_load_holdout_ids_rejects_tampering(tmp_path):
     manifest = {"holdout": {"sha256": "wrong", "caseIdsSha256": "wrong", "rows": 1}}
     with pytest.raises(ValueError, match="manifest digest"):
         load_holdout_ids(holdout, manifest)
+
+
+def test_validate_result_ids_requires_the_complete_holdout():
+    holdout_ids = {f"case-{index:02d}" for index in range(30)}
+    subset = sorted(holdout_ids)[:20]
+
+    with pytest.raises(ValueError, match="every deterministic holdout case"):
+        validate_result_ids(subset, holdout_ids, min_cases=20)
+
+
+def test_validate_result_ids_accepts_each_holdout_case_exactly_once():
+    holdout_ids = {"case-a", "case-b"}
+
+    validate_result_ids(["case-b", "case-a"], holdout_ids, min_cases=2)
+
+
+def test_validate_result_ids_rejects_duplicates_before_coverage_check():
+    with pytest.raises(ValueError, match="duplicate case ids"):
+        validate_result_ids(["case-a", "case-a"], {"case-a"}, min_cases=1)

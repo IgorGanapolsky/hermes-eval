@@ -78,6 +78,15 @@ def extract_results(payload: dict) -> tuple[list[dict], int]:
     return normalized, errors
 
 
+def validate_result_ids(result_ids: list[str], holdout_ids: set[str], min_cases: int) -> None:
+    if len(set(result_ids)) != len(result_ids):
+        raise ValueError("profile result contains duplicate case ids")
+    if set(result_ids) != holdout_ids:
+        raise ValueError("profile result must cover every deterministic holdout case exactly once")
+    if min_cases < 1 or len(result_ids) < min_cases:
+        raise ValueError(f"profile result must contain at least {max(1, min_cases)} cases")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--profile", required=True)
@@ -97,12 +106,10 @@ def main() -> None:
         json.loads(Path(args.results).expanduser().read_text(encoding="utf-8"))
     )
     result_ids = [row["id"] for row in results]
-    if len(set(result_ids)) != len(result_ids):
-        parser.error("profile result contains duplicate case ids")
-    if not set(result_ids).issubset(holdout_ids):
-        parser.error("profile result contains cases outside the deterministic holdout")
-    if args.min_cases < 1 or len(result_ids) < args.min_cases:
-        parser.error(f"profile result must contain at least {max(1, args.min_cases)} cases")
+    try:
+        validate_result_ids(result_ids, holdout_ids, args.min_cases)
+    except ValueError as exc:
+        parser.error(str(exc))
     payload = {
         "schema": "hermes-eval/profile-run-v1",
         "profile": args.profile,
