@@ -4,6 +4,7 @@
 Standalone: `python3 tests/test_prune_stale_tool_outputs.py` (no litellm needed — the
 logger guards that import).
 """
+
 import copy
 import os
 import sys
@@ -80,7 +81,9 @@ after = [(x.get("role"), x.get("tool_call_id")) for x in k["messages"]]
 assert before == after, "pruning must never add/remove/reorder messages"
 
 # 7. non-string content (vision parts) skipped without error
-k = kw([{"role": "tool", "tool_call_id": "z", "content": [{"type": "text", "text": "x" * 9000}]}] * 6)
+k = kw(
+    [{"role": "tool", "tool_call_id": "z", "content": [{"type": "text", "text": "x" * 9000}]}] * 6
+)
 stub_stale_tool_outputs(k, protect_last_n=1, min_chars=1)
 assert isinstance(k["messages"][0]["content"], list)
 

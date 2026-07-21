@@ -3,7 +3,8 @@ name: eval-gate
 # Cheap cloud smoke gate (the local Ollama fleet isn't reachable from GitHub runners).
 # The authoritative model-drift gate is the LOCAL runner on the Mac Pro (eval/run_gate.sh
 # against the LiteLLM proxy), which posts the `eval/golden-gate` commit status.
-# This job is NOT a required check (it spends cloud tokens); CI (lint+tests) is the gate.
+# This job is NOT a required check; it uses pinned free variants with lower provider
+# rate limits, while CI (lint+tests) remains the deterministic code gate.
 
 on:
   pull_request:

@@ -23,6 +23,9 @@ ERR=$(jq '.results.stats.errors // 0' "$OUT")           # eval errors must NOT c
 DEN=$((PASS + FAIL + ERR))
 RATE=$(python3 -c "p=$PASS; d=$DEN; print(round(p/d,4) if d else 0.0)")
 echo "▶ pass-rate=$RATE (pass=$PASS fail=$FAIL errors=$ERR)"
+if [ "$ERR" -gt 0 ]; then
+  python3 summarize_errors.py "$OUT"
+fi
 
 REG_OK=1
 if [ -f baseline.json ]; then
