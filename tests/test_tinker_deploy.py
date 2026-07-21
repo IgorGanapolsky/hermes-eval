@@ -4,7 +4,10 @@ import subprocess
 import sys
 import types
 
+import pytest
+
 SCRIPT = pathlib.Path(__file__).parents[1] / "scripts" / "tinker_deploy.py"
+SMOKE_SENTINEL = "TINKER-DEPLOY-OK"
 
 
 def load_module(monkeypatch):
@@ -89,5 +92,43 @@ def test_failed_smoke_preserves_existing_q4_alias(monkeypatch):
         assert "load failed" in str(exc)
     else:
         raise AssertionError("smoke failure must raise")
+
+    assert aliases == []
+
+
+def test_deploy_smoke_requires_exact_sentinel(monkeypatch):
+    module = load_module(monkeypatch)
+    assert (
+        module.require_exact_smoke_output(0, f" {module.SMOKE_SENTINEL}\n") == module.SMOKE_SENTINEL
+    )
+
+
+@pytest.mark.parametrize(
+    "returncode, output, message",
+    [
+        (1, SMOKE_SENTINEL, "exited 1"),
+        (0, f"thinking...\n{SMOKE_SENTINEL}", "exactly match"),
+        (0, f"{SMOKE_SENTINEL} extra", "exactly match"),
+        (0, "", "exactly match"),
+    ],
+)
+def test_deploy_smoke_rejects_false_positive_output(monkeypatch, returncode, output, message):
+    module = load_module(monkeypatch)
+    with pytest.raises(RuntimeError, match=message):
+        module.require_exact_smoke_output(returncode, output)
+
+
+def test_non_exact_smoke_preserves_existing_q4_alias(monkeypatch):
+    module = load_module(monkeypatch)
+    aliases = []
+    monkeypatch.setattr(
+        module.subprocess,
+        "run",
+        lambda *args, **kwargs: completed(stdout=f"{module.SMOKE_SENTINEL} extra"),
+    )
+    monkeypatch.setattr(module, "run_checked", lambda args, **kwargs: aliases.append(args))
+
+    with pytest.raises(RuntimeError, match="exactly match"):
+        module.smoke_and_alias_model()
 
     assert aliases == []
