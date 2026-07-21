@@ -59,6 +59,40 @@ def test_error_keeps_tail_where_ollama_prints_the_panic(monkeypatch):
     assert message.endswith("ROOT_CAUSE_AT_END")
 
 
+def test_cached_llama_cpp_converter_requires_pinned_revision(monkeypatch, tmp_path):
+    module = load_module(monkeypatch)
+    source = tmp_path / f"llama.cpp-{module.LLAMA_CPP_TAG}"
+    source.mkdir()
+    (source / "convert_hf_to_gguf.py").write_text("# fixture\n", encoding="utf-8")
+    monkeypatch.setattr(module, "WORK", str(tmp_path))
+    monkeypatch.setattr(module.shutil, "which", lambda command: f"/usr/bin/{command}")
+    monkeypatch.setattr(
+        module,
+        "run_checked",
+        lambda *args, **kwargs: completed(stdout="unexpected-revision\n"),
+    )
+
+    with pytest.raises(RuntimeError, match="revision mismatch"):
+        module.ensure_llama_cpp_converter()
+
+
+def test_cached_llama_cpp_converter_accepts_exact_pinned_revision(monkeypatch, tmp_path):
+    module = load_module(monkeypatch)
+    source = tmp_path / f"llama.cpp-{module.LLAMA_CPP_TAG}"
+    source.mkdir()
+    converter = source / "convert_hf_to_gguf.py"
+    converter.write_text("# fixture\n", encoding="utf-8")
+    monkeypatch.setattr(module, "WORK", str(tmp_path))
+    monkeypatch.setattr(module.shutil, "which", lambda command: f"/usr/bin/{command}")
+    monkeypatch.setattr(
+        module,
+        "run_checked",
+        lambda *args, **kwargs: completed(stdout=f"{module.LLAMA_CPP_REV}\n"),
+    )
+
+    assert module.ensure_llama_cpp_converter() == converter
+
+
 def test_q4_alias_moves_only_after_successful_smoke(monkeypatch):
     module = load_module(monkeypatch)
     calls = []

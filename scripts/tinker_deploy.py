@@ -74,6 +74,20 @@ def run_checked(args, *, env=None, label):
     return result
 
 
+def verify_llama_cpp_checkout(source, converter, git):
+    revision = run_checked(
+        [git, "-C", str(source), "rev-parse", "HEAD"],
+        label="llama.cpp revision check failed",
+    ).stdout.strip()
+    if revision != LLAMA_CPP_REV:
+        raise RuntimeError(
+            f"llama.cpp revision mismatch: expected {LLAMA_CPP_REV}, received {revision}"
+        )
+    if not converter.is_file():
+        raise RuntimeError(f"pinned llama.cpp converter missing after revision check: {converter}")
+    return converter
+
+
 def ensure_llama_cpp_converter():
     override = os.environ.get("TINKER_HF_TO_GGUF")
     if override:
@@ -84,14 +98,14 @@ def ensure_llama_cpp_converter():
 
     source = pathlib.Path(WORK) / f"llama.cpp-{LLAMA_CPP_TAG}"
     converter = source / "convert_hf_to_gguf.py"
-    if converter.is_file():
-        return converter
-    if source.exists():
-        raise RuntimeError(f"incomplete pinned llama.cpp checkout: {source}")
-
     git = shutil.which("git")
     if not git:
         raise RuntimeError("git is required to fetch the pinned llama.cpp converter")
+    if converter.is_file():
+        return verify_llama_cpp_checkout(source, converter, git)
+    if source.exists():
+        raise RuntimeError(f"incomplete pinned llama.cpp checkout: {source}")
+
     log(f"fetching pinned llama.cpp converter {LLAMA_CPP_TAG} ({LLAMA_CPP_REV[:12]})…")
     run_checked(
         [
@@ -106,17 +120,7 @@ def ensure_llama_cpp_converter():
         ],
         label="llama.cpp clone failed",
     )
-    revision = run_checked(
-        [git, "-C", str(source), "rev-parse", "HEAD"],
-        label="llama.cpp revision check failed",
-    ).stdout.strip()
-    if revision != LLAMA_CPP_REV:
-        raise RuntimeError(
-            f"llama.cpp revision mismatch: expected {LLAMA_CPP_REV}, received {revision}"
-        )
-    if not converter.is_file():
-        raise RuntimeError(f"pinned llama.cpp converter missing after clone: {converter}")
-    return converter
+    return verify_llama_cpp_checkout(source, converter, git)
 
 
 def create_via_gguf(merged_dir):
