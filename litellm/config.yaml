@@ -107,6 +107,20 @@ model_list:
       timeout: 45
     model_info: {mode: chat, input_cost_per_token: 0, output_cost_per_token: 0, max_input_tokens: 131072, max_output_tokens: 8192}
 
+  # ---- Poolside Laguna S 2.1 via OpenRouter FREE tier (118B/8B-active, coding-specialized;
+  #      SWE-Bench Multilingual 78.5%, SWE-Bench Pro public 59.4% per Poolside's 2026-07-21
+  #      release). Verified tool-calling 2026-07-23 (structured tool_calls, cost:0) before
+  #      wiring into the auto-fallback chain below, same bar as nemotron3-free. Same
+  #      OpenRouter account/key as nemotron3-free — a rate-limit or outage on that key
+  #      affects both, so this adds model diversity (coding-specialized vs general-purpose),
+  #      not provider diversity. ----
+  - model_name: laguna-free
+    litellm_params:
+      model: openrouter/poolside/laguna-s-2.1:free
+      api_key: os.environ/OPENROUTER_API_KEY
+      timeout: 45
+    model_info: {mode: chat, input_cost_per_token: 0, output_cost_per_token: 0, max_input_tokens: 1048576, max_output_tokens: 8192}
+
   # ---- OpenCode Zen FREE tier (opencode.ai gateway; account = Google SSO, key in
   #      ~/.hermes/.env, NO billing enabled — free models only, $0). Wired 2026-07-17 as a
   #      SECOND free pre-local rung in the auto-fallback chain (different provider infra
@@ -215,6 +229,31 @@ model_list:
       api_key: os.environ/OPENROUTER_API_KEY
     model_info: {mode: chat}
 
+  # ---- Together.ai serverless (PER-TOKEN, key verified live 2026-07-19: 272 models,
+  #      272-model catalog incl. Inkling/GLM-5.2/Kimi/DeepSeek). OPT-IN BY NAME ONLY —
+  #      per-token, so kept OUT of every auto-fallback chain like kimi-coding/nemotron.
+  #      `together-inkling` is the Inkling escalation route: $1.00/$4.05 per 1M —
+  #      CHEAPER than the first-party Tinker route (see fleet-autonomy-research-2026-07).
+  #      Inkling is a REASONING model → give it ≥900 max_tokens or content returns empty. ----
+  - model_name: together-inkling
+    litellm_params:
+      model: openai/thinkingmachines/Inkling
+      api_base: https://api.together.xyz/v1
+      api_key: os.environ/TOGETHER_API_KEY
+      timeout: 90
+    model_info: {mode: chat, max_input_tokens: 262144, max_output_tokens: 8192}
+
+  # ---- Together GLM-5.2: SAME model as the flat z.ai/OpenCode routes but a THIRD,
+  #      independent quota pool → a manual cross-provider fallback for the documented
+  #      triple-quota-exhaustion day (2026-07-12). Per-token → opt-in by name, NOT auto. ----
+  - model_name: together-glm
+    litellm_params:
+      model: openai/zai-org/GLM-5.2
+      api_base: https://api.together.xyz/v1
+      api_key: os.environ/TOGETHER_API_KEY
+      timeout: 60
+    model_info: {mode: chat, max_input_tokens: 200000, max_output_tokens: 128000}
+
 router_settings:
   routing_strategy: latency-based-routing       # auto-prefers the fastest live box
   num_retries: 1                                 # 1 retry (was 2): a down subscription endpoint won't recover on retry, so fewer retries => faster failover to local. Transient blips still get one retry.
@@ -222,7 +261,7 @@ router_settings:
   allowed_fails: 2
   cooldown_time: 45                              # bench a dead node (the mini) for 45s
   enable_pre_call_checks: true                  # oversized prompt => bigger-ctx / cloud
-  fallbacks: [{"glm-coding": ["opencode-go-glm", "nemotron3-free", "opencode-free", "hermes-local"]}, {"glm-turbo": ["opencode-go-glm", "nemotron3-free", "opencode-free", "hermes-local"]}, {"hermes-local": ["opencode-go-glm", "nemotron3-free", "opencode-free", "glm-coding"]}]   # ZERO-SPEND chain (2026-07-14): subscription GLM → Nemotron-3-Ultra-550B (:free, tool-calling, fails-hard) → local. Removed cloud-fallback (openrouter/z-ai/glm-5.2, PAID per-token) and nemotron (openai/nvidia/…-49b, METERED NIM) from every auto chain — those two paid routes ahead of local are what silently burned $175 on OpenRouter when the GLM sub hit its cap. nemotron3-free is a real tool-calling model, so it still satisfies "a real model must precede local" (a local model answers 200 with degraded output and short-circuits the router). If OpenRouter balance is negative, :free 402s and it falls straight to local — still $0. Paid routes (cloud-fallback, escalation=fugu-ultra) remain defined for MANUAL use only.
+  fallbacks: [{"glm-coding": ["opencode-go-glm", "nemotron3-free", "laguna-free", "opencode-free", "hermes-local"]}, {"glm-turbo": ["opencode-go-glm", "nemotron3-free", "laguna-free", "opencode-free", "hermes-local"]}, {"hermes-local": ["opencode-go-glm", "nemotron3-free", "laguna-free", "opencode-free", "glm-coding"]}]   # ZERO-SPEND chain (2026-07-14, extended 2026-07-23): subscription GLM → Nemotron-3-Ultra-550B (:free, tool-calling, fails-hard) → Poolside Laguna S 2.1 (:free, coding-specialized, tool-calling verified 2026-07-23) → local. Removed cloud-fallback (openrouter/z-ai/glm-5.2, PAID per-token) and nemotron (openai/nvidia/…-49b, METERED NIM) from every auto chain — those two paid routes ahead of local are what silently burned $175 on OpenRouter when the GLM sub hit its cap. nemotron3-free and laguna-free are both real tool-calling models, so they still satisfy "a real model must precede local" (a local model answers 200 with degraded output and short-circuits the router). If OpenRouter balance is negative, :free 402s and it falls straight through to local — still $0. Paid routes (cloud-fallback, escalation=fugu-ultra) remain defined for MANUAL use only.
   context_window_fallbacks: [{"hermes-local": ["glm-coding"]}, {"glm-turbo": ["glm-coding"]}]   # >200K prompt => 1M-ctx subscription glm-coding (was: cloud-fallback, PAID — removed 2026-07-14)
   content_policy_fallbacks: [{"glm-coding": ["hermes-local"]}, {"glm-turbo": ["hermes-local"]}]   # provider content-policy refusal => local model (separate trigger class per LiteLLM reliability docs)
 
