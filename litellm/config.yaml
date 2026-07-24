@@ -119,7 +119,7 @@ model_list:
       model: openrouter/poolside/laguna-s-2.1:free
       api_key: os.environ/OPENROUTER_API_KEY
       timeout: 45
-    model_info: {mode: chat, input_cost_per_token: 0, output_cost_per_token: 0, max_input_tokens: 1048576, max_output_tokens: 8192}
+    model_info: {mode: chat, input_cost_per_token: 0, output_cost_per_token: 0, max_input_tokens: 262144, max_output_tokens: 8192}   # :free variant caps at 262144 per OpenRouter's live /api/v1/models (verified 2026-07-24); 1048576 is the paid variant's window, not this one's
 
   # ---- OpenCode Zen FREE tier (opencode.ai gateway; account = Google SSO, key in
   #      ~/.hermes/.env, NO billing enabled — free models only, $0). Wired 2026-07-17 as a
