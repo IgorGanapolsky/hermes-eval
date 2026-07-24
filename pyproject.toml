@@ -12,7 +12,7 @@ dependencies = []
 # The eval scripts are stdlib-only; the LiteLLM proxy is installed separately as an
 # isolated CLI tool: `uv tool install 'litellm[proxy]'` (see litellm/start-proxy.sh).
 dev = [
-    "ruff>=0.15.20",
+    "ruff>=0.16.0",
     "pytest>=9.1",
     "pytest-cov>=7.1",
 ]
