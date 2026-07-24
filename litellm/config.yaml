@@ -107,6 +107,20 @@ model_list:
       timeout: 45
     model_info: {mode: chat, input_cost_per_token: 0, output_cost_per_token: 0, max_input_tokens: 131072, max_output_tokens: 8192}
 
+  # ---- Poolside Laguna S 2.1 via OpenRouter FREE tier (118B/8B-active, coding-specialized;
+  #      SWE-Bench Multilingual 78.5%, SWE-Bench Pro public 59.4% per Poolside's 2026-07-21
+  #      release). Verified tool-calling 2026-07-23 (structured tool_calls, cost:0) before
+  #      wiring into the auto-fallback chain below, same bar as nemotron3-free. Same
+  #      OpenRouter account/key as nemotron3-free — a rate-limit or outage on that key
+  #      affects both, so this adds model diversity (coding-specialized vs general-purpose),
+  #      not provider diversity. ----
+  - model_name: laguna-free
+    litellm_params:
+      model: openrouter/poolside/laguna-s-2.1:free
+      api_key: os.environ/OPENROUTER_API_KEY
+      timeout: 45
+    model_info: {mode: chat, input_cost_per_token: 0, output_cost_per_token: 0, max_input_tokens: 262144, max_output_tokens: 8192}   # :free variant caps at 262144 per OpenRouter's live /api/v1/models (verified 2026-07-24); 1048576 is the paid variant's window, not this one's
+
   # ---- OpenCode Zen FREE tier (opencode.ai gateway; account = Google SSO, key in
   #      ~/.hermes/.env, NO billing enabled — free models only, $0). Wired 2026-07-17 as a
   #      SECOND free pre-local rung in the auto-fallback chain (different provider infra
@@ -247,7 +261,7 @@ router_settings:
   allowed_fails: 2
   cooldown_time: 45                              # bench a dead node (the mini) for 45s
   enable_pre_call_checks: true                  # oversized prompt => bigger-ctx / cloud
-  fallbacks: [{"glm-coding": ["opencode-go-glm", "nemotron3-free", "opencode-free", "hermes-local"]}, {"glm-turbo": ["opencode-go-glm", "nemotron3-free", "opencode-free", "hermes-local"]}, {"hermes-local": ["opencode-go-glm", "nemotron3-free", "opencode-free", "glm-coding"]}]   # ZERO-SPEND chain (2026-07-14): subscription GLM → Nemotron-3-Ultra-550B (:free, tool-calling, fails-hard) → local. Removed cloud-fallback (openrouter/z-ai/glm-5.2, PAID per-token) and nemotron (openai/nvidia/…-49b, METERED NIM) from every auto chain — those two paid routes ahead of local are what silently burned $175 on OpenRouter when the GLM sub hit its cap. nemotron3-free is a real tool-calling model, so it still satisfies "a real model must precede local" (a local model answers 200 with degraded output and short-circuits the router). If OpenRouter balance is negative, :free 402s and it falls straight to local — still $0. Paid routes (cloud-fallback, escalation=fugu-ultra) remain defined for MANUAL use only.
+  fallbacks: [{"glm-coding": ["opencode-go-glm", "nemotron3-free", "laguna-free", "opencode-free", "hermes-local"]}, {"glm-turbo": ["opencode-go-glm", "nemotron3-free", "laguna-free", "opencode-free", "hermes-local"]}, {"hermes-local": ["opencode-go-glm", "nemotron3-free", "laguna-free", "opencode-free", "glm-coding"]}]   # ZERO-SPEND chain (2026-07-14, extended 2026-07-23): subscription GLM → Nemotron-3-Ultra-550B (:free, tool-calling, fails-hard) → Poolside Laguna S 2.1 (:free, coding-specialized, tool-calling verified 2026-07-23) → local. Removed cloud-fallback (openrouter/z-ai/glm-5.2, PAID per-token) and nemotron (openai/nvidia/…-49b, METERED NIM) from every auto chain — those two paid routes ahead of local are what silently burned $175 on OpenRouter when the GLM sub hit its cap. nemotron3-free and laguna-free are both real tool-calling models, so they still satisfy "a real model must precede local" (a local model answers 200 with degraded output and short-circuits the router). If OpenRouter balance is negative, :free 402s and it falls straight through to local — still $0. Paid routes (cloud-fallback, escalation=fugu-ultra) remain defined for MANUAL use only.
   context_window_fallbacks: [{"hermes-local": ["glm-coding"]}, {"glm-turbo": ["glm-coding"]}]   # >200K prompt => 1M-ctx subscription glm-coding (was: cloud-fallback, PAID — removed 2026-07-14)
   content_policy_fallbacks: [{"glm-coding": ["hermes-local"]}, {"glm-turbo": ["hermes-local"]}]   # provider content-policy refusal => local model (separate trigger class per LiteLLM reliability docs)
 
