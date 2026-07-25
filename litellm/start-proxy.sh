@@ -29,6 +29,9 @@ if grep -q '^OPENCODE_API_KEY=' "$HOME/.hermes/.env" 2>/dev/null; then
   export OPENCODE_API_KEY="$(grep '^OPENCODE_API_KEY=' "$HOME/.hermes/.env" | tail -1 | cut -d= -f2-)"
 fi
 # Together.ai serverless key (per-token; opt-in-by-name routes together-inkling/together-glm).
+if grep -q '^GEMINI_API_KEY=' "$HOME/.hermes/.env" 2>/dev/null; then
+  export GEMINI_API_KEY="$(grep '^GEMINI_API_KEY=' "$HOME/.hermes/.env" | tail -1 | cut -d= -f2-)"
+fi
 if grep -q '^TOGETHER_API_KEY=' "$HOME/.hermes/.env" 2>/dev/null; then
   export TOGETHER_API_KEY="$(grep '^TOGETHER_API_KEY=' "$HOME/.hermes/.env" | tail -1 | cut -d= -f2-)"
 fi
