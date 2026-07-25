@@ -82,6 +82,33 @@ model_list:
       timeout: 60
     model_info: {mode: chat, supports_vision: true, max_input_tokens: 65536, max_output_tokens: 8192}
 
+  # ---- VISION FALLBACKS. glm-vision rides the same z.ai subscription as glm-coding, so ONE
+  #      5-hour usage cap takes both down at once — and since image-bearing requests are routed
+  #      here (hermes_logger.route_image_request_to_vision), a capped sub used to leave every
+  #      screenshot session retrying a hard 429 with "No fallback model group found" while text
+  #      sessions failed over fine (hit live 2026-07-25, cap reset 02:07). Both routes below were
+  #      verified reading a real PNG before wiring — no paper fallbacks (muse-spark is NOT here:
+  #      it 401s, see the route below). Different provider AND different quota pool, so a z.ai
+  #      cap cannot take them with it. ----
+  - model_name: vision-free
+    litellm_params:
+      model: openrouter/nvidia/nemotron-nano-12b-v2-vl:free
+      api_key: os.environ/OPENROUTER_API_KEY
+      timeout: 45
+    model_info: {mode: chat, supports_vision: true, input_cost_per_token: 0, output_cost_per_token: 0, max_input_tokens: 128000, max_output_tokens: 8192}
+
+  # Last resort: local, so it survives BOTH a z.ai cap and an OpenRouter free-tier 429 (gemma-4
+  # was already 429ing when this was wired). 4B is below the fleet's "no tiny silent fallback"
+  # bar for CODING, but this route only ever answers "what is in this image" after two real VLMs
+  # have failed — and a slow local read beats a dead session. ~15s/image, no quota, no cost.
+  - model_name: vision-local
+    litellm_params:
+      model: ollama_chat/qwen3-vl:4b-instruct
+      api_base: http://127.0.0.1:11434
+      keep_alive: "15m"
+      timeout: 90
+    model_info: {mode: chat, supports_vision: true, input_cost_per_token: 0, output_cost_per_token: 0, max_input_tokens: 32768, max_output_tokens: 4096}
+
   # ---- NVIDIA Nemotron Super 49B via NIM (build.nvidia.com). OPT-IN by name (model: "nemotron");
   #      NOT in the auto-fallback chain — it's PER-TOKEN cloud, so it must not silently replace the
   #      flat GLM sub. Verified 2026-07-09: tool-calls correctly. Use for hard agentic/coding when
@@ -247,7 +274,7 @@ router_settings:
   allowed_fails: 2
   cooldown_time: 45                              # bench a dead node (the mini) for 45s
   enable_pre_call_checks: true                  # oversized prompt => bigger-ctx / cloud
-  fallbacks: [{"glm-coding": ["opencode-go-glm", "nemotron3-free", "opencode-free", "hermes-local"]}, {"glm-turbo": ["opencode-go-glm", "nemotron3-free", "opencode-free", "hermes-local"]}, {"hermes-local": ["opencode-go-glm", "nemotron3-free", "opencode-free", "glm-coding"]}]   # ZERO-SPEND chain (2026-07-14): subscription GLM → Nemotron-3-Ultra-550B (:free, tool-calling, fails-hard) → local. Removed cloud-fallback (openrouter/z-ai/glm-5.2, PAID per-token) and nemotron (openai/nvidia/…-49b, METERED NIM) from every auto chain — those two paid routes ahead of local are what silently burned $175 on OpenRouter when the GLM sub hit its cap. nemotron3-free is a real tool-calling model, so it still satisfies "a real model must precede local" (a local model answers 200 with degraded output and short-circuits the router). If OpenRouter balance is negative, :free 402s and it falls straight to local — still $0. Paid routes (cloud-fallback, escalation=fugu-ultra) remain defined for MANUAL use only.
+  fallbacks: [{"glm-coding": ["opencode-go-glm", "nemotron3-free", "opencode-free", "hermes-local"]}, {"glm-turbo": ["opencode-go-glm", "nemotron3-free", "opencode-free", "hermes-local"]}, {"hermes-local": ["opencode-go-glm", "nemotron3-free", "opencode-free", "glm-coding"]}, {"glm-vision": ["vision-free", "vision-local"]}]   # ZERO-SPEND chain (2026-07-14; glm-vision leg added 2026-07-25 — see the vision-fallback routes above: one z.ai cap took text AND vision down, but only vision had nowhere to go): subscription GLM → Nemotron-3-Ultra-550B (:free, tool-calling, fails-hard) → local. Removed cloud-fallback (openrouter/z-ai/glm-5.2, PAID per-token) and nemotron (openai/nvidia/…-49b, METERED NIM) from every auto chain — those two paid routes ahead of local are what silently burned $175 on OpenRouter when the GLM sub hit its cap. nemotron3-free is a real tool-calling model, so it still satisfies "a real model must precede local" (a local model answers 200 with degraded output and short-circuits the router). If OpenRouter balance is negative, :free 402s and it falls straight to local — still $0. Paid routes (cloud-fallback, escalation=fugu-ultra) remain defined for MANUAL use only.
   context_window_fallbacks: [{"hermes-local": ["glm-coding"]}, {"glm-turbo": ["glm-coding"]}]   # >200K prompt => 1M-ctx subscription glm-coding (was: cloud-fallback, PAID — removed 2026-07-14)
   content_policy_fallbacks: [{"glm-coding": ["hermes-local"]}, {"glm-turbo": ["hermes-local"]}]   # provider content-policy refusal => local model (separate trigger class per LiteLLM reliability docs)
 

@@ -52,7 +52,9 @@ GLM_MIN_MAX_TOKENS = int(os.environ.get("HERMES_GLM_MIN_MAX_TOKENS", "1024"))
 VISION_MODEL = os.environ.get("HERMES_VISION_MODEL", "glm-vision")
 VISION_CAPABLE_MODELS = {
     m.strip()
-    for m in os.environ.get("HERMES_VISION_CAPABLE", "glm-vision,muse-spark").split(",")
+    for m in os.environ.get(
+        "HERMES_VISION_CAPABLE", "glm-vision,vision-free,vision-local,muse-spark"
+    ).split(",")
     if m.strip()
 }
 # OpenAI-compatible multimodal content blocks, across the spellings clients emit.
