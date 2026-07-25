@@ -42,6 +42,56 @@ OPENROUTER_MAX_TOKENS = int(os.environ.get("HERMES_OPENROUTER_MAX_TOKENS", "4096
 # so flooring adds ~0 cost on short answers but eliminates the empty-response failures.
 GLM_MIN_MAX_TOKENS = int(os.environ.get("HERMES_GLM_MIN_MAX_TOKENS", "1024"))
 
+# Only glm-vision (GLM-4.6V) can SEE on this fleet. z.ai's coding endpoint hard-rejects
+# image content on the text routes — verified 2026-07-25: glm-coding returns HTTP 400
+# "messages.content.type is invalid, allowed values: ['text']", then burns ~36s walking a
+# text-only fallback chain that also can't see. Agents attach screenshots against whatever
+# model the session happens to be on (opencode-yolo TUI, hermes-yolo), so route by request
+# CONTENT rather than trusting each client to pick the vision model. glm-vision tool-calls
+# correctly (verified same day), so an agentic turn survives the reroute.
+VISION_MODEL = os.environ.get("HERMES_VISION_MODEL", "glm-vision")
+VISION_CAPABLE_MODELS = {
+    m.strip()
+    for m in os.environ.get("HERMES_VISION_CAPABLE", "glm-vision,muse-spark").split(",")
+    if m.strip()
+}
+# OpenAI-compatible multimodal content blocks, across the spellings clients emit.
+IMAGE_PART_TYPES = {"image_url", "image", "input_image"}
+
+
+def has_image_parts(messages):
+    """True if any message carries an image content block."""
+    for msg in messages or []:
+        content = msg.get("content") if isinstance(msg, dict) else None
+        if not isinstance(content, list):
+            continue
+        for part in content:
+            if isinstance(part, dict) and str(part.get("type") or "") in IMAGE_PART_TYPES:
+                return True
+    return False
+
+
+def route_image_request_to_vision(data, vision_model=None, vision_capable=None):
+    """Send image-bearing requests to the vision route instead of 400ing on a text model.
+
+    Pure helper (unit-testable); mutates and returns the proxy request `data`. No-op when
+    the request has no image or the requested group can already see."""
+    if not isinstance(data, dict):
+        return data
+    vision_model = VISION_MODEL if vision_model is None else vision_model
+    capable = VISION_CAPABLE_MODELS if vision_capable is None else vision_capable
+    requested = str(data.get("model") or "")
+    # Clients may address a group bare ("glm-coding") or prefixed ("hermes/glm-coding").
+    if not requested or requested.split("/")[-1] in capable:
+        return data
+    if not has_image_parts(data.get("messages")):
+        return data
+    data["model"] = vision_model
+    # Never silent: the reroute changes which model answers, so say so in the proxy log
+    # (the JSONL record already lands under the model that actually ran).
+    print(f"[hermes_logger] image input detected: routing {requested} -> {vision_model}")
+    return data
+
 
 def _model_strings(kwargs):
     """(request model, deployment model) as lowercased strings for route matching."""
@@ -381,6 +431,13 @@ def build_record(kwargs, response_obj, latency_s, status):
 
 
 class HermesJSONLLogger(CustomLogger):
+    async def async_pre_call_hook(self, user_api_key_dict, cache, data, call_type):
+        """Proxy-level, BEFORE routing — the only place a different model group can still
+        be chosen (the deployment hook below runs after that decision)."""
+        with contextlib.suppress(Exception):  # never break a request because of the guard
+            return route_image_request_to_vision(data)
+        return data
+
     async def async_pre_call_deployment_hook(self, kwargs, call_type):
         with contextlib.suppress(
             Exception
