@@ -72,6 +72,14 @@ model_list:
       timeout: 45                               # bound a blackholed/slow z.ai so failover to local is fast (was unbounded=120s router default x retries ≈ minutes). 45s covers normal GLM reasoning; a stuck call fails over to hermes-local. Verified 2026-07-04.
     model_info: {mode: chat, max_input_tokens: 1000000, max_output_tokens: 128000}   # 1M ctx / 128K out per docs.z.ai — lets pre_call_checks route oversized prompts here
 
+  - model_name: glm-5.2
+    litellm_params:
+      model: openai/glm-5.2
+      api_base: https://api.z.ai/api/coding/paas/v4
+      api_key: os.environ/Z_AI_API_KEY
+      timeout: 45                               # bound a blackholed/slow z.ai so failover to local is fast (was unbounded=120s router default x retries ≈ minutes). 45s covers normal GLM reasoning; a stuck call fails over to hermes-local. Verified 2026-07-04.
+    model_info: {mode: chat, max_input_tokens: 1000000, max_output_tokens: 128000}   # 1M ctx / 128K out per docs.z.ai — lets pre_call_checks route oversized prompts here
+
   # ---- ECONOMY ROUTE on the SAME z.ai subscription: GLM-4.7 at the STANDARD rate.
   #      z.ai bills the Coding Plan in PROMPTS, not tokens (docs.z.ai/devpack/faq: one prompt
   #      "typically allows 15-20 model calls"), and only the PREMIUM models (GLM-5.2, GLM-5-Turbo)
@@ -170,6 +178,20 @@ model_list:
       timeout: 45
     model_info: {mode: chat, input_cost_per_token: 0, output_cost_per_token: 0, max_input_tokens: 131072, max_output_tokens: 8192}
 
+  # ---- Poolside Laguna S 2.1 via OpenRouter FREE tier (118B/8B-active, coding-specialized;
+  #      SWE-Bench Multilingual 78.5%, SWE-Bench Pro public 59.4% per Poolside's 2026-07-21
+  #      release). Verified tool-calling 2026-07-23 (structured tool_calls, cost:0) before
+  #      wiring into the auto-fallback chain below, same bar as nemotron3-free. Same
+  #      OpenRouter account/key as nemotron3-free — a rate-limit or outage on that key
+  #      affects both, so this adds model diversity (coding-specialized vs general-purpose),
+  #      not provider diversity. ----
+  - model_name: laguna-free
+    litellm_params:
+      model: openrouter/poolside/laguna-s-2.1:free
+      api_key: os.environ/OPENROUTER_API_KEY
+      timeout: 45
+    model_info: {mode: chat, input_cost_per_token: 0, output_cost_per_token: 0, max_input_tokens: 262144, max_output_tokens: 8192}   # :free variant caps at 262144 per OpenRouter's live /api/v1/models (verified 2026-07-24); 1048576 is the paid variant's window, not this one's
+
   # ---- OpenCode Zen FREE tier (opencode.ai gateway; account = Google SSO, key in
   #      ~/.hermes/.env, NO billing enabled — free models only, $0). Wired 2026-07-17 as a
   #      SECOND free pre-local rung in the auto-fallback chain (different provider infra
@@ -197,13 +219,29 @@ model_list:
       timeout: 60
     model_info: {mode: chat, max_input_tokens: 200000, max_output_tokens: 128000}
 
-  # ---- Kimi Code FLAT-RATE membership (Moderato $19/mo, ACTIVE 2026-07-17). sk-kimi-*
-  #      console key, api.kimi.com/coding/v1, model kimi-for-coding = K2.7 Code (262K on
-  #      Moderato). Flat sub => SAFE for the auto-fallback chain (unlike per-token
-  #      kimi-coding on Moonshot). Opt-in by name for now; verified before any chain add. ----
+  # ---- Kimi Code FLAT-RATE membership (Allegretto $39/mo, upgraded 2026-07-28 from
+  #      Moderato $19). sk-kimi-* console key, api.kimi.com/coding/v1.
+  #      kimi-for-coding = K2.7 Code (262K). Allegretto ≈5x Moderato quota + unlocks
+  #      full 1M ctx on k3 (see kimi-code-k3). Flat sub => SAFE for auto-fallback
+  #      (unlike per-token kimi-coding on Moonshot). Live-proven completion+tool-call
+  #      2026-07-28 → joined glm-coding fallback chain. ----
   - model_name: kimi-code
     litellm_params:
       model: openai/kimi-for-coding
+      api_base: https://api.kimi.com/coding/v1
+      api_key: os.environ/KIMI_CODE_API_KEY
+      timeout: 60
+    model_info: {mode: chat, max_input_tokens: 262144, max_output_tokens: 16384}
+
+  # ---- High-speed variant on the SAME Kimi Allegretto flat subscription (no extra spend,
+  #      same KIMI_CODE_API_KEY). Opt-in by name only, exactly as on the mac mini, which
+  #      already carried this route — added here 2026-07-31 to bring the MacBook Pro to
+  #      parity after an audit found the two machines' configs had diverged. Deliberately
+  #      NOT in any auto chain: kimi-code is the quality rung, this is for latency-bound
+  #      work someone opts into. ----
+  - model_name: kimi-code-fast
+    litellm_params:
+      model: openai/kimi-for-coding-highspeed
       api_base: https://api.kimi.com/coding/v1
       api_key: os.environ/KIMI_CODE_API_KEY
       timeout: 60
@@ -231,6 +269,38 @@ model_list:
       api_key: os.environ/MOONSHOT_API_KEY
       timeout: 60
     model_info: {mode: chat, max_input_tokens: 262144, max_output_tokens: 16384}
+
+  # ---- Kimi K3 (July 2026 open-weight flagship, 2.8T MoE, 1M ctx). API id `kimi-k3`
+  #      on Moonshot (PER-TOKEN ~$3/$15 per M — opt-in BY NAME ONLY). Do NOT add to
+  #      auto-fallback chains. Weights: huggingface.co/moonshotai/Kimi-K3 — NOT runnable
+  #      on Mac Pro/mini (multi-node). Flat-rate membership aliases below when quota allows.
+  #      Source: Threads @vaibhavsisinty + platform.kimi.ai/docs/guide/kimi-k3-quickstart
+  - model_name: kimi-k3
+    litellm_params:
+      model: openai/kimi-k3
+      api_base: https://api.moonshot.ai/v1
+      api_key: os.environ/MOONSHOT_API_KEY
+      timeout: 180
+    model_info: {mode: chat, max_input_tokens: 1048576, max_output_tokens: 131072}
+
+  # ---- Kimi Code membership K3 routes (api.kimi.com/coding). Allegretto $39+ unlocks
+  #      full 1M on `k3`; `k3-256k` is the smaller alias. Flat-rate membership quota.
+  #      kimi-code-k3 is the context-window overflow target (1M). Live-proven 2026-07-28. ----
+  - model_name: kimi-code-k3
+    litellm_params:
+      model: openai/k3
+      api_base: https://api.kimi.com/coding/v1
+      api_key: os.environ/KIMI_CODE_API_KEY
+      timeout: 180
+    model_info: {mode: chat, max_input_tokens: 1048576, max_output_tokens: 131072}
+
+  - model_name: kimi-code-k3-256k
+    litellm_params:
+      model: openai/k3-256k
+      api_base: https://api.kimi.com/coding/v1
+      api_key: os.environ/KIMI_CODE_API_KEY
+      timeout: 120
+    model_info: {mode: chat, max_input_tokens: 262144, max_output_tokens: 65536}
 
   # ---- Same subscription, lighter/faster model: GLM-5-Turbo (200K ctx). Verified live on the
   #      coding endpoint 2026-07-02. Also reasons heavily — give it ≥300 max_tokens. ----
@@ -310,8 +380,8 @@ router_settings:
   allowed_fails: 2
   cooldown_time: 45                              # bench a dead node (the mini) for 45s
   enable_pre_call_checks: true                  # oversized prompt => bigger-ctx / cloud
-  fallbacks: [{"glm-coding": ["opencode-go-glm", "nemotron3-free", "opencode-free", "hermes-local"]}, {"glm-turbo": ["opencode-go-glm", "nemotron3-free", "opencode-free", "hermes-local"]}, {"hermes-local": ["opencode-go-glm", "nemotron3-free", "opencode-free", "glm-coding"]}, {"glm-vision": ["vision-gemini", "vision-free", "vision-local"]}, {"glm-47": ["nemotron3-free", "laguna-free", "opencode-free", "hermes-local"]}]   # ZERO-SPEND chain (2026-07-14; glm-vision leg added 2026-07-25 — see the vision-fallback routes above: one z.ai cap took text AND vision down, but only vision had nowhere to go): subscription GLM → Nemotron-3-Ultra-550B (:free, tool-calling, fails-hard) → local. Removed cloud-fallback (openrouter/z-ai/glm-5.2, PAID per-token) and nemotron (openai/nvidia/…-49b, METERED NIM) from every auto chain — those two paid routes ahead of local are what silently burned $175 on OpenRouter when the GLM sub hit its cap. nemotron3-free is a real tool-calling model, so it still satisfies "a real model must precede local" (a local model answers 200 with degraded output and short-circuits the router). If OpenRouter balance is negative, :free 402s and it falls straight to local — still $0. Paid routes (cloud-fallback, escalation=fugu-ultra) remain defined for MANUAL use only.
-  context_window_fallbacks: [{"hermes-local": ["glm-coding"]}, {"glm-turbo": ["glm-coding"]}, {"glm-vision": ["vision-gemini", "vision-free"]}]   # >200K prompt => 1M-ctx subscription glm-coding (was: cloud-fallback, PAID — removed 2026-07-14). glm-vision added 2026-07-28: image-bearing requests are REROUTED here (hermes_logger.route_image_request_to_vision), but GLM-4.6V caps at 65K input — so any screenshot session whose context grew past that died on a hard ContextWindowExceededError with "Available Model Group Fallbacks=None" and could never recover. The `fallbacks:` chain above does NOT cover this: LiteLLM routes context-window errors through THIS list only, so #27's vision chain (a 429 fix) left the oversized case still fatal. Killed a live poolside-yolo session at 67,024 tokens. vision-gemini is 1M ctx / $0, vision-free 128K; vision-local (32K) is omitted because it cannot hold an oversized prompt by definition.
+  fallbacks: [{"glm-coding": ["kimi-code", "opencode-go-glm", "nemotron3-free", "laguna-free", "opencode-free", "hermes-local"]}, {"glm-turbo": ["kimi-code", "opencode-go-glm", "nemotron3-free", "laguna-free", "opencode-free", "hermes-local"]}, {"hermes-local": ["kimi-code", "opencode-go-glm", "nemotron3-free", "laguna-free", "opencode-free", "glm-coding"]}, {"glm-vision": ["vision-gemini", "vision-free", "vision-local"]}, {"glm-47": ["kimi-code", "nemotron3-free", "laguna-free", "opencode-free", "hermes-local"]}, {"kimi-code": ["opencode-go-kimi", "nemotron3-free", "hermes-local"]}, {"kimi-code-k3": ["kimi-code", "glm-coding", "hermes-local"]}]   # 2026-07-31: kimi-code moved AHEAD of opencode-go-glm (it sat behind it from 2026-07-28). opencode-go-glm answers a live provider 429 — "Monthly usage limit reached. Resets in 17 days" (verified 2026-07-31, so ~2026-08-17) — so with z.ai ALSO capped until 2026-08-01 21:07, every glm-coding request was paying two guaranteed-failing hops before reaching kimi-code, the only healthy paid rung. Measured cost of that: 51-79% request failure 07-28..07-31. The mac mini already ordered it this way; this aligns the MacBook Pro to it. kimi-code is additionally the only rung on non-z.ai/non-OpenRouter infra, so a z.ai cap + an OpenRouter 429 day cannot strand the fleet on free rungs. Still NO per-token Moonshot kimi-coding / cloud-fallback / nemotron NIM in auto chains ($175 burn lesson). Free rungs keep tool-calling bar; local last.
+  context_window_fallbacks: [{"hermes-local": ["glm-coding", "kimi-code-k3"]}, {"glm-turbo": ["glm-coding", "kimi-code-k3"]}, {"kimi-code": ["kimi-code-k3", "glm-coding"]}, {"glm-vision": ["vision-gemini", "vision-free"]}]   # >ctx: 1M glm-coding OR Allegretto kimi-code-k3 (1M, flat). glm-vision 2026-07-28: image-bearing requests reroute here; GLM-4.6V caps 65K — vision-gemini 1M / $0.
   content_policy_fallbacks: [{"glm-coding": ["hermes-local"]}, {"glm-turbo": ["hermes-local"]}]   # provider content-policy refusal => local model (separate trigger class per LiteLLM reliability docs)
 
 litellm_settings:
