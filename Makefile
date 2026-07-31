@@ -1,4 +1,4 @@
-.PHONY: proxy eval gate ci-gate verify synth validate-judge baseline view
+.PHONY: proxy eval gate ci-gate verify synth validate-judge baseline view tinker-holdout
 LITELLM_MASTER_KEY ?= sk-hermes-local-dev
 export LITELLM_MASTER_KEY
 
@@ -28,3 +28,9 @@ baseline:        ## snapshot current results as the regression baseline
 
 view:            ## open the promptfoo web viewer
 	cd eval && npx --yes promptfoo@latest view
+
+tinker-holdout:  ## materialize the private deterministic Tinker holdout + manifest
+	uv run python scripts/prepare-tinker-holdout.py \
+		--in "$(HOME)/.hermes/tinker/datasets/conversations.jsonl" \
+		--out "$(HOME)/.hermes/tinker/evals/holdout.jsonl" \
+		--manifest "$(HOME)/.hermes/tinker/evals/holdout-manifest.json"

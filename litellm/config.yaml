@@ -78,10 +78,16 @@ model_list:
   #      carry the multiplier — "3 times the standard rate during peak hours and 2 times during
   #      off-peak" (1x off-peak under a promo running through Sept 2026). z.ai's own FAQ recommends
   #      GLM-4.7 for routine tasks "to avoid depleting your plan's usage quota too quickly".
-  #      So: routine/background/automated work belongs HERE, and glm-coding (5.2) is reserved for
-  #      hard interactive work. Igor's weekly cap blew on 2026-07-28 (reset 2026-08-01 21:07) with
-  #      a 4-day fleet outage behind it, so this is the difference between capped and not.
-  #      Same key, same subscription, no extra spend. Fallbacks mirror glm-coding's $0 chain.
+  #      So: routine/background/automated work belongs HERE; glm-coding (5.2) stays for hard
+  #      interactive work. The weekly cap blew on 2026-07-28 (reset 2026-08-01 21:07) and took the
+  #      fleet down for 4 days, so this split is the difference between capped and not.
+  #      Same key, same subscription, no extra spend. `glm-4.7` is confirmed present on the coding
+  #      endpoint's /models list. NOT yet live-verified for tool-calling: the subscription is capped
+  #      until Aug 1, so every call currently falls through to nemotron3-free. Verify with a real
+  #      tool-call after the reset BEFORE adding it to competence_probe.py's COMPETENT_MARKERS or
+  #      pointing automated traffic at it — this repo does not ship paper fallbacks.
+  #      Its chain deliberately omits glm-coding: escalating the cheap route to the 3x model would
+  #      defeat the whole point.
   - model_name: glm-47
     litellm_params:
       model: openai/glm-4.7
@@ -108,6 +114,11 @@ model_list:
   #      verified reading a real PNG before wiring — no paper fallbacks (muse-spark is NOT here:
   #      it 401s, see the route below). Different provider AND different quota pool, so a z.ai
   #      cap cannot take them with it. ----
+  # FIRST fallback, ahead of the free 12B: Gemini 2.5 Flash is a frontier-class VLM with a 1M
+  # window on Google's FREE tier, and the key was already sitting in ~/.hermes/.env unused —
+  # a capped z.ai was degrading image work to a 12B when this was available at $0 the whole
+  # time. Free tier = rate limits, not per-token billing, so it cannot burn money (the $175
+  # OpenRouter incident rule still holds: no metered route in an auto chain).
   - model_name: vision-gemini
     litellm_params:
       model: gemini/gemini-2.5-flash

@@ -1,52 +1,117 @@
-# Tinker (Thinking Machines) — fine-tune the fleet's local model on our own traffic
+# Tinker for the Hermes fleet
 
-Status 2026-07-17: everything below is prepared and verified locally except the two
-Igor-only steps (account + API key). Tinker went GA Dec 2025 (no waitlist); pricing
-rose ~10% on train rates 2026-07-17 — still single-digit dollars at our scale.
+Verified 2026-07-21: `tinker-yolo`, Tinker SDK 0.23.0, and Tinker Cookbook 0.5.2 are
+already installed. Tinker authentication succeeds and Qwen/Qwen3-8B is available.
+Installing the Cookbook again is not an improvement; using it to train and evaluate
+without leakage is.
 
-## Why
+## Current role
 
-- Tinker LoRA-tunes **`Qwen/Qwen3-8B` — the exact upstream of our local `qwen3:8b`**
-  (also Qwen3.5/3.6, Kimi K2.x, gpt-oss, Nemotron-3, DeepSeek — see
-  https://tinker-docs.thinkingmachines.ai/tinker/models/).
-- Training runs on their GPUs (nothing local — our 24GB no-GPU Macs can't tune 8B).
-- **Weights come back out** (`tinker checkpoint download`, `build_hf_model` → merged
-  safetensors) → llama.cpp `convert_hf_to_gguf.py` + `llama-quantize` q4_K_M →
-  `ollama create qwen3-hermes` → new `hermes-local` deployment in the LiteLLM gateway.
-  Inference does NOT stay on their platform.
-- Fit per docs/FINE-TUNING-RESEARCH-2026-07.md: distillation of strong-teacher
-  trajectories is the one tuning path that pays; RAG covers knowledge.
+- Tinker LoRA-trains `Qwen/Qwen3-8B`, the upstream model for the local Hermes candidate.
+- Sampler weights are exported, merged into Hugging Face weights, and imported into
+  Ollama. Normal inference stays local.
+- `tinker-yolo` blocks paid training unless both paid spend and data upload are
+  explicitly approved with a bounded cost estimate.
+- Inkling remains a metered remote evaluation candidate. It cannot run locally on this
+  host and never replaces the local baseline automatically.
 
-## Dataset (READY — verified 2026-07-17)
+The official [Tinker quickstart](https://tinker-docs.thinkingmachines.ai/tinker/quickstart/)
+and [Tinker Cookbook](https://github.com/thinking-machines-lab/tinker-cookbook) describe
+the underlying supervised, preference, reinforcement-learning, and evaluation APIs.
+
+## Private dataset and leakage prevention
+
+The current private dataset contains 4,408 rows and 4,239 unique usable conversations;
+169 duplicate rows are excluded from both training and evaluation. Of the raw rows,
+3,020 final targets contain tool calls and 1,481 contain tool calls without prose. The
+full message history contains 237,179 valid function calls.
+
+Training scripts now:
+
+1. Deduplicate identical conversations before selection or split accounting.
+2. Assign every conversation to a stable SHA-256 90/10 train/holdout split.
+3. Train only on the 90% partition.
+4. Normalize both logger tool-call schemas into Cookbook `ToolCall` objects.
+5. Preserve tool calls and tool-result correlation fields during rendering.
+6. Keep every rendered example at or below Tinker's verified 32,768-token Qwen3-8B
+   limit by dropping complete old turns or assistant/tool cycles at safe boundaries.
+7. Refuse paid training if fewer than 95% of selected rows render.
+8. Export sampler weights rather than an optimizer-state path.
+9. Require the Ollama smoke response to equal `TINKER-DEPLOY-OK` exactly before
+   reporting deployment success.
+
+Materialize the private holdout and its digest-bound manifest without uploading data:
 
 ```sh
-python3 scripts/build-distill-dataset.py --accumulate --out /tmp/tinker-dataset.jsonl
-# read 6,260 trajectories from live+archives → 1,628 usable teacher tool-use traces
-jq -c 'del(.meta)' /tmp/tinker-dataset.jsonl > /tmp/tinker-conversations.jsonl  # Tinker wants {"messages":[...]} only
+uv run python scripts/prepare-tinker-holdout.py \
+  --in ~/.hermes/tinker/datasets/conversations.jsonl \
+  --out ~/.hermes/tinker/evals/holdout.jsonl \
+  --manifest ~/.hermes/tinker/evals/holdout-manifest.json
 ```
 
-1,628 traces ≳ the few-hundred threshold where distillation becomes worthwhile.
-The traffic log keeps growing this dataset automatically (gateway logger).
+The output and manifest are written atomically with mode `0600`; their directory is
+mode `0700`. Stable case IDs let evaluation receipts prove that every scored example
+came from the deterministic holdout.
 
-## Igor-only steps (5 minutes)
+## Evidence-gated candidate promotion
 
-1. Sign up: https://auth.thinkingmachines.ai/sign-up (open signup; $150 intro credits
-   were reported — unverified whether still live).
-2. Create key: https://tinker-console.thinkingmachines.ai → `TINKER_API_KEY=...` into
-   `~/.hermes/.env` (never paste into chat).
-
-## Train + export (agent-runnable once the key exists)
+Each baseline and candidate evaluation repeat must be wrapped as
+`hermes-eval/profile-run-v1`, bound to the real holdout file and manifest:
 
 ```sh
-python3 -m venv ~/.hermes/tinker-venv && ~/.hermes/tinker-venv/bin/pip install tinker tinker-cookbook
-export TINKER_API_KEY="$(grep '^TINKER_API_KEY=' ~/.hermes/.env | cut -d= -f2-)"
-# sl_basic-style supervised run: base_model="Qwen/Qwen3-8B", rank 32, lr 2e-4,
-# FromConversationFileBuilder(file_path="/tmp/tinker-conversations.jsonl")
-# Cost estimate: ~1.6k traces × ~2k tok ≈ 3M train tokens ≈ $1.30 @ $0.44/M.
-tinker checkpoint download 'tinker://<run>/sampler_weights/final' -o ~/models/qwen3-hermes
-# merge → GGUF → ollama create qwen3-hermes-64k → add gateway deployment; A/B with
-# litellm/competence_probe.py before ever making it a default (never silently degrade).
+uv run python eval/wrap_profile_run.py \
+  --profile hermes-local-baseline \
+  --manifest ~/.hermes/tinker/evals/holdout-manifest.json \
+  --holdout ~/.hermes/tinker/evals/holdout.jsonl \
+  --results /path/to/baseline-results-1.json \
+  --out ~/.hermes/tinker/evals/baseline-1.json
 ```
 
-Notes: Inkling (their 975B open-weights MoE, July 15 2026) is fine-tunable too — 50%
-launch discount — but it's cloud-inference-class, not a local candidate here.
+After at least three repeats per profile, create the receipt consumed by
+`tinker-yolo --doctor`:
+
+```sh
+uv run python eval/compare_profiles.py \
+  --manifest ~/.hermes/tinker/evals/holdout-manifest.json \
+  --baseline ~/.hermes/tinker/evals/baseline-1.json \
+  --baseline ~/.hermes/tinker/evals/baseline-2.json \
+  --baseline ~/.hermes/tinker/evals/baseline-3.json \
+  --candidate ~/.hermes/tinker/evals/candidate-1.json \
+  --candidate ~/.hermes/tinker/evals/candidate-2.json \
+  --candidate ~/.hermes/tinker/evals/candidate-3.json \
+  --out ~/.hermes/tinker/evals/inkling-vs-baseline.json
+```
+
+Promotion is rejected unless all of these are true:
+
+- at least three baseline and candidate repeats;
+- identical case sets from the manifest-bound holdout;
+- zero provider/evaluator errors;
+- no aggregate holdout regression;
+- no per-case regression;
+- candidate pass rate at least 85%; and
+- candidate improves by at least one percentage point.
+
+The baseline replacement gate remains false. A passing receipt approves only the
+isolated remote candidate role.
+
+## Paid execution
+
+Training and deployment remain explicit, receipt-producing operations:
+
+```sh
+tinker-yolo proof --approve-paid --approve-data-upload --max-cost-usd N
+tinker-yolo train 64 8 --approve-paid --approve-data-upload --max-cost-usd N
+tinker-yolo deploy 64 8 --approve-paid --approve-data-upload --max-cost-usd N
+```
+
+No paid training or Inkling evaluation is implied by local tests, a saved checkpoint,
+or an Ollama smoke response. Candidate quality is established only by the repeated
+held-out comparison above.
+
+## Why DPO and RL are not next
+
+The Cookbook supports DPO, RLHF, tool-use RL, and multi-agent training. They are not the
+highest-ROI next step until held-out SFT evaluation is trustworthy and ThumbGate feedback
+has been curated into unambiguous preference pairs. Vague thumbs or auto-promoted noise
+must not become a reward function.

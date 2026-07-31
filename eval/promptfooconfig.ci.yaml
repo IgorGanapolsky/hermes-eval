@@ -7,17 +7,18 @@ prompts:
       {"role":"user","content":"Context:\n{{context}}\n\nQuestion: {{question}}"}
     ]
 
-# No local fleet in CI -> hit cloud models directly via OpenRouter (set OPENROUTER_API_KEY).
+# No local fleet in CI -> use pinned zero-cost OpenRouter variants. This keeps the
+# smoke gate runnable when the account has no paid balance without random-model routing.
 providers:
-  - id: openrouter:z-ai/glm-5.2
+  - id: openrouter:openai/gpt-oss-20b:free
     config: {temperature: 0, max_tokens: 1024}   # reasoning model: leave room or content comes back null
 
 defaultTest:
   options:
     provider:
       text:
-        # Cross-family judge (different family than the GLM SUT). Verified available on OpenRouter 2026-06-25.
-        id: openrouter:openai/gpt-4o-mini
+        # Cross-family judge (Google vs OpenAI SUT). Both variants are zero-cost.
+        id: openrouter:google/gemma-4-26b-a4b-it:free
 
 # Run with EVAL_SUBSET=ci-smoke EVAL_NO_EMBED=1 so it stays cheap and needs no embedding model.
 tests: file://load_golden.py:make_tests

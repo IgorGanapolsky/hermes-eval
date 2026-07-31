@@ -120,3 +120,54 @@ $ EVAL_THRESHOLD=1.01 bash eval/run_gate.sh promptfooconfig.ci.yaml
 | GitHub repo (public) | ✅ | https://github.com/IgorGanapolsky/hermes-eval — pushed after a clean secret scan |
 
 Known minor: LiteRT gemma judge still down (separate server, unrelated to Ollama); background health checks disabled to stop wasteful 28s probes + log noise. To revert the Hermes repoint: `cp ~/.hermes/config.yaml.bak.hermes-eval-20260626 ~/.hermes/config.yaml`.
+
+## Tinker tool-use training and promotion gate — 2026-07-21
+
+This work fixes the evidence path before another paid fine-tuning run. It does **not** claim a new
+Tinker training run, a better candidate, or candidate adoption.
+
+### Private dataset audit
+
+The local Tinker source contained 4,408 rows. After exact-content deduplication it contained 4,239
+unique rows: 169 duplicate rows across 14 duplicate groups, with one conversation repeated 152
+times. A deterministic SHA-256 split now produces 3,824 training rows and 415 held-out rows. The
+held-out set contains 278 assistant targets with tool calls and is written with owner-only file
+permissions.
+
+The original conversion path reduced messages to `{role, content}` and silently discarded tool-call
+structure. In the audited source, 3,020 final assistant targets contain tool calls and 1,481 of those
+targets contain only tool calls. The normalizer now preserves both the source's flat
+`{name, arguments}` form and OpenAI-style nested function calls.
+
+### Offline tokenizer reproduction
+
+Using the cached Qwen3 tokenizer on a real tool-call-only trajectory:
+
+- old conversion: 1 trainable token, no `<tool_call>` marker, no function payload;
+- normalized conversion: 16 trainable tokens, marker and function payload both present.
+
+On 64 real examples, the context limiter rendered every example within Qwen3-8B's 32,768-token
+catalog limit. Six examples required structural history pruning; the largest rendered example was
+31,927 tokens. All 60 tool-call targets in that sample retained the marker and payload.
+
+### Promotion contract
+
+`eval/wrap_profile_run.py` binds each Promptfoo result to the exact private holdout digest and stable
+case IDs. `eval/compare_profiles.py` rejects candidate adoption unless both profiles use the same
+held-out cases, run at least three repeats without errors, avoid aggregate and per-case regressions,
+reach at least an 85% candidate pass rate, and improve by at least one percentage point. Its
+`tinker-yolo/profile-comparison-v1` receipt is the format consumed by the installed `tinker-yolo`
+doctor.
+
+### Verification
+
+```text
+uv run ruff check --output-format=concise .  -> pass
+uv run ruff format --check .                 -> 26 files already formatted
+uv run pytest                                -> 80 passed
+```
+
+No raw private validation row is logged by the training path. No candidate alias is promoted by
+these scripts; promotion still requires real baseline and candidate evaluation receipts. Deployment
+also fails unless at least 95% of selected rows render and the Ollama smoke response exactly equals
+`TINKER-DEPLOY-OK`; extra text, an empty response, or a non-zero process exit cannot print `DONE`.
