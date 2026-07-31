@@ -214,6 +214,20 @@ model_list:
       timeout: 60
     model_info: {mode: chat, max_input_tokens: 262144, max_output_tokens: 16384}
 
+  # ---- High-speed variant on the SAME Kimi Allegretto flat subscription (no extra spend,
+  #      same KIMI_CODE_API_KEY). Opt-in by name only, exactly as on the mac mini, which
+  #      already carried this route — added here 2026-07-31 to bring the MacBook Pro to
+  #      parity after an audit found the two machines' configs had diverged. Deliberately
+  #      NOT in any auto chain: kimi-code is the quality rung, this is for latency-bound
+  #      work someone opts into. ----
+  - model_name: kimi-code-fast
+    litellm_params:
+      model: openai/kimi-for-coding-highspeed
+      api_base: https://api.kimi.com/coding/v1
+      api_key: os.environ/KIMI_CODE_API_KEY
+      timeout: 60
+    model_info: {mode: chat, max_input_tokens: 262144, max_output_tokens: 16384}
+
   - model_name: opencode-go-kimi
     litellm_params:
       model: openai/kimi-k2.7-code
@@ -347,7 +361,7 @@ router_settings:
   allowed_fails: 2
   cooldown_time: 45                              # bench a dead node (the mini) for 45s
   enable_pre_call_checks: true                  # oversized prompt => bigger-ctx / cloud
-  fallbacks: [{"glm-coding": ["opencode-go-glm", "kimi-code", "nemotron3-free", "laguna-free", "opencode-free", "hermes-local"]}, {"glm-turbo": ["opencode-go-glm", "kimi-code", "nemotron3-free", "laguna-free", "opencode-free", "hermes-local"]}, {"hermes-local": ["opencode-go-glm", "kimi-code", "nemotron3-free", "laguna-free", "opencode-free", "glm-coding"]}, {"glm-vision": ["vision-gemini", "vision-free", "vision-local"]}, {"glm-47": ["kimi-code", "nemotron3-free", "laguna-free", "opencode-free", "hermes-local"]}, {"kimi-code": ["opencode-go-kimi", "nemotron3-free", "hermes-local"]}, {"kimi-code-k3": ["kimi-code", "glm-coding", "hermes-local"]}]   # 2026-07-28 Allegretto $39: flat-rate kimi-code (K2.7 Code via api.kimi.com) joins the chain AFTER opencode-go-glm (independent quota; Go was monthly-capped 2026-07-28) and BEFORE free OpenRouter rungs. Still NO per-token Moonshot kimi-coding / cloud-fallback / nemotron NIM in auto chains ($175 burn lesson). Free rungs keep tool-calling bar; local last.
+  fallbacks: [{"glm-coding": ["kimi-code", "opencode-go-glm", "nemotron3-free", "laguna-free", "opencode-free", "hermes-local"]}, {"glm-turbo": ["kimi-code", "opencode-go-glm", "nemotron3-free", "laguna-free", "opencode-free", "hermes-local"]}, {"hermes-local": ["kimi-code", "opencode-go-glm", "nemotron3-free", "laguna-free", "opencode-free", "glm-coding"]}, {"glm-vision": ["vision-gemini", "vision-free", "vision-local"]}, {"glm-47": ["kimi-code", "nemotron3-free", "laguna-free", "opencode-free", "hermes-local"]}, {"kimi-code": ["opencode-go-kimi", "nemotron3-free", "hermes-local"]}, {"kimi-code-k3": ["kimi-code", "glm-coding", "hermes-local"]}]   # 2026-07-31: kimi-code moved AHEAD of opencode-go-glm (it sat behind it from 2026-07-28). opencode-go-glm answers a live provider 429 — "Monthly usage limit reached. Resets in 17 days" (verified 2026-07-31, so ~2026-08-17) — so with z.ai ALSO capped until 2026-08-01 21:07, every glm-coding request was paying two guaranteed-failing hops before reaching kimi-code, the only healthy paid rung. Measured cost of that: 51-79% request failure 07-28..07-31. The mac mini already ordered it this way; this aligns the MacBook Pro to it. kimi-code is additionally the only rung on non-z.ai/non-OpenRouter infra, so a z.ai cap + an OpenRouter 429 day cannot strand the fleet on free rungs. Still NO per-token Moonshot kimi-coding / cloud-fallback / nemotron NIM in auto chains ($175 burn lesson). Free rungs keep tool-calling bar; local last.
   context_window_fallbacks: [{"hermes-local": ["glm-coding", "kimi-code-k3"]}, {"glm-turbo": ["glm-coding", "kimi-code-k3"]}, {"kimi-code": ["kimi-code-k3", "glm-coding"]}, {"glm-vision": ["vision-gemini", "vision-free"]}]   # >ctx: 1M glm-coding OR Allegretto kimi-code-k3 (1M, flat). glm-vision 2026-07-28: image-bearing requests reroute here; GLM-4.6V caps 65K — vision-gemini 1M / $0.
   content_policy_fallbacks: [{"glm-coding": ["hermes-local"]}, {"glm-turbo": ["hermes-local"]}]   # provider content-policy refusal => local model (separate trigger class per LiteLLM reliability docs)
 

@@ -53,7 +53,7 @@ VISION_MODEL = os.environ.get("HERMES_VISION_MODEL", "glm-vision")
 VISION_CAPABLE_MODELS = {
     m.strip()
     for m in os.environ.get(
-        "HERMES_VISION_CAPABLE", "glm-vision,vision-free,vision-local,muse-spark"
+        "HERMES_VISION_CAPABLE", "glm-vision,vision-gemini,vision-free,vision-local,muse-spark"
     ).split(",")
     if m.strip()
 }
