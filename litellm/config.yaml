@@ -17,14 +17,8 @@ model_list:
       rpm: 60
     model_info: {mode: chat, input_cost_per_token: 0, output_cost_per_token: 0, max_input_tokens: 65536, max_output_tokens: 8192}
 
-  - model_name: hermes-local
-    litellm_params:
-      model: ollama_chat/qwen2.5:3b-64k
-      api_base: http://100.94.135.78:11436       # Mac mini over Tailscale
-      num_ctx: 65536
-      keep_alive: "15m"
-      rpm: 40
-    model_info: {mode: chat, input_cost_per_token: 0, output_cost_per_token: 0, max_input_tokens: 65536, max_output_tokens: 8192}
+  # Mac mini Tailscale hermes-local REMOVED 2026-08-05: offline mini hangs LB requests
+  # until cool-down; re-add only when 100.94.135.78:11436 health-probes green.
 
   # ---- Local fallback: smaller/faster model on the Mac Pro ----
   # Same weights as hermes-local — alias for emergency/fast paths without loading a second model.
