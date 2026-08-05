@@ -28,7 +28,7 @@ Proxy auth: `LITELLM_MASTER_KEY` (local-dev default documented in SECURITY.md; t
 | `glm-coding` | GLM-5.2 | z.ai Coding Plan `api.z.ai/api/coding/paas/v4` | flat monthly (already paid) | **Fleet default.** 1M ctx / 128K out. Reasons heavily — give ≥300 max_tokens. |
 | `glm-turbo` | GLM-5-Turbo | same subscription/endpoint/key | flat monthly | Mid-tier: faster, lighter on quota. 200K ctx / 128K out. Also reasons heavily. |
 | `hermes-local` | qwen3:8b-64k | Ollama, load-balanced Pro+mini | $0 | `think:false` required or content comes back empty. |
-| `hermes-local-fast` | qwen2.5:3b-64k | Mac Pro Ollama | $0 | Smallest/fastest local. |
+| `hermes-local` | qwen2.5:3b-64k | Mac Pro Ollama | $0 | Smallest/fastest local. |
 | `hermes-coder` | qwen2.5-coder:14b-64k | mini Ollama | $0 | Opt-in only; avoid under mini memory pressure. |
 | `hermes-gemma` | gemma4-12b (LiteRT `:9379`) | Mac Pro | $0 | Cross-family eval JUDGE. |
 | `cloud-fallback` | GLM-5.2 via OpenRouter | cloud | **per-token** | Last resort only — double-charges on top of the subscription. |
@@ -36,7 +36,7 @@ Proxy auth: `LITELLM_MASTER_KEY` (local-dev default documented in SECURITY.md; t
 
 **Fallback chains:** `glm-coding → hermes-local → cloud-fallback`;
 `glm-turbo → hermes-local → cloud-fallback` (NOT via glm-coding — a z.ai 429 caps both
-subscription routes); `hermes-local → hermes-local-fast → glm-coding → cloud-fallback`.
+subscription routes); `hermes-local → glm-coding → cloud-fallback`.
 Context overflow: `hermes-local → glm-coding`, `glm-turbo → glm-coding` (>200K).
 Content-policy refusals: `glm-coding/glm-turbo → hermes-local` (separate LiteLLM trigger class).
 Chains are config-declared; behaviorally fire-drilled only for local-node death, not z.ai 429.
