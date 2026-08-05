@@ -19,8 +19,8 @@ providers:
     api: http://127.0.0.1:4010/v1
     base_url: http://127.0.0.1:4010/v1
     transport: chat_completions
-    default_model: hermes-local-fast
-    model: hermes-local-fast
+    default_model: hermes-local
+    model: hermes-local
     api_key: sk-hermes-local-dev
     discover_models: true
 ```
@@ -28,14 +28,14 @@ providers:
 Test without changing the default:
 
 ```bash
-hermes -z "ping" --provider custom:litellm-gateway -m hermes-local-fast --yolo
+hermes -z "ping" --provider custom:litellm-gateway -m hermes-local --yolo
 ```
 
 ## 3. Flip the default (only after the test passes)
 
 ```yaml
 model:
-  default: hermes-local-fast
+  default: hermes-local
   provider: custom:litellm-gateway
 ```
 

@@ -9,7 +9,7 @@ prompts:
 
 # System under test: the local model (Hermes default qwen2.5:3b-64k), reached via the LiteLLM proxy.
 providers:
-  - id: openai:chat:hermes-local-fast
+  - id: openai:chat:hermes-local
     label: "qwen2.5:3b-64k via LiteLLM (LOCAL)"
     config:
       apiBaseUrl: http://127.0.0.1:4010/v1
