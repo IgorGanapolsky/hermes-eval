@@ -6,33 +6,22 @@
 
 model_list:
   # ---- PRIMARY: best local model, one entry per machine => true cross-host load-balance ----
+  # 2026-08-05 high-ROI: qwen3:8b-64k measured p50~120s / near-zero useful tokens (fleet note).
+  # Prefer qwen2.5:3b-64k for hermes-local emergency/offline rung (smoke-tested smaller, coexists with embedder).
   - model_name: hermes-local
-    litellm_params:
-      model: ollama_chat/qwen3:8b-64k
-      api_base: http://127.0.0.1:11434          # Mac Pro (this box)
-      num_ctx: 65536
-      think: false                              # qwen3 thinks by default → empties the content field via the proxy; disable it
-      keep_alive: "15m"
-      rpm: 60
-    model_info: {mode: chat, input_cost_per_token: 0, output_cost_per_token: 0, max_input_tokens: 65536, max_output_tokens: 8192}   # register ctx so enable_pre_call_checks doesn't raise "model isn't mapped yet" (unmapped :64k tag) and bench this fallback
-
-  - model_name: hermes-local
-    litellm_params:
-      model: ollama_chat/qwen3:8b-64k
-      api_base: http://100.94.135.78:11436       # Mac mini over Tailscale (LAN-agnostic; survives subnet/cellular changes). Offline => LiteLLM cools it down.
-      num_ctx: 65536
-      think: false                              # see Mac Pro entry — disable qwen3 thinking so content isn't empty via the proxy
-      keep_alive: "15m"
-      rpm: 40
-    model_info: {mode: chat, input_cost_per_token: 0, output_cost_per_token: 0, max_input_tokens: 65536, max_output_tokens: 8192}   # register ctx so pre_call_checks doesn't raise "isn't mapped yet" and bench this fallback
-
-  # ---- Local fallback: smaller/faster model on the Mac Pro ----
-  - model_name: hermes-local-fast
     litellm_params:
       model: ollama_chat/qwen2.5:3b-64k
-      api_base: http://127.0.0.1:11434
+      api_base: http://127.0.0.1:11434          # Mac Pro (this box)
       num_ctx: 65536
+      keep_alive: "15m"
+      rpm: 60
     model_info: {mode: chat, input_cost_per_token: 0, output_cost_per_token: 0, max_input_tokens: 65536, max_output_tokens: 8192}
+
+  # Mac mini Tailscale hermes-local REMOVED 2026-08-05: offline mini hangs LB requests
+  # until cool-down; re-add only when 100.94.135.78:11436 health-probes green.
+
+  # hermes-local-fast REMOVED 2026-08-05: same ollama target as hermes-local but hung (0-byte timeout).
+  # Use model name hermes-local for all offline emergency rungs — zero dual-alias debt.
 
   - model_name: omlx-local
     litellm_params:
@@ -200,6 +189,18 @@ model_list:
   #      $10/mo flat sub (second glm-5.2 quota pool) unlock after Igor enables billing —
   #      keep those OUT of auto-fallbacks like every per-token route. ----
   - model_name: opencode-free
+    litellm_params:
+      model: openai/deepseek-v4-flash-free
+      api_base: https://opencode.ai/zen/v1
+      api_key: os.environ/OPENCODE_API_KEY
+      timeout: 45
+    model_info: {mode: chat, input_cost_per_token: 0, output_cost_per_token: 0, max_input_tokens: 131072, max_output_tokens: 8192}
+
+  # ---- DeepSeek V4-Flash-0731 (agent post-train, MIT open weights 2026-08-03).
+  #      Named agent-capable alias for hermes-yolo fail-closed routing. Same Zen free
+  #      endpoint as opencode-free; keep both names so fallbacks + explicit HERMES_YOLO_MODEL
+  #      can target deepseek-v4-flash without resolving laguna/nemotron free first. ----
+  - model_name: deepseek-v4-flash
     litellm_params:
       model: openai/deepseek-v4-flash-free
       api_base: https://opencode.ai/zen/v1
@@ -380,7 +381,7 @@ router_settings:
   allowed_fails: 2
   cooldown_time: 45                              # bench a dead node (the mini) for 45s
   enable_pre_call_checks: true                  # oversized prompt => bigger-ctx / cloud
-  fallbacks: [{"glm-coding": ["kimi-code", "opencode-go-glm", "nemotron3-free", "laguna-free", "opencode-free", "hermes-local"]}, {"glm-turbo": ["kimi-code", "opencode-go-glm", "nemotron3-free", "laguna-free", "opencode-free", "hermes-local"]}, {"hermes-local": ["kimi-code", "opencode-go-glm", "nemotron3-free", "laguna-free", "opencode-free", "glm-coding"]}, {"glm-vision": ["vision-gemini", "vision-free", "vision-local"]}, {"glm-47": ["kimi-code", "nemotron3-free", "laguna-free", "opencode-free", "hermes-local"]}, {"kimi-code": ["opencode-go-kimi", "nemotron3-free", "hermes-local"]}, {"kimi-code-k3": ["kimi-code", "glm-coding", "hermes-local"]}]   # 2026-07-31: kimi-code moved AHEAD of opencode-go-glm (it sat behind it from 2026-07-28). opencode-go-glm answers a live provider 429 — "Monthly usage limit reached. Resets in 17 days" (verified 2026-07-31, so ~2026-08-17) — so with z.ai ALSO capped until 2026-08-01 21:07, every glm-coding request was paying two guaranteed-failing hops before reaching kimi-code, the only healthy paid rung. Measured cost of that: 51-79% request failure 07-28..07-31. The mac mini already ordered it this way; this aligns the MacBook Pro to it. kimi-code is additionally the only rung on non-z.ai/non-OpenRouter infra, so a z.ai cap + an OpenRouter 429 day cannot strand the fleet on free rungs. Still NO per-token Moonshot kimi-coding / cloud-fallback / nemotron NIM in auto chains ($175 burn lesson). Free rungs keep tool-calling bar; local last.
+  fallbacks: [{"glm-coding": ["kimi-code", "opencode-go-glm", "deepseek-v4-flash", "opencode-free", "hermes-local"]}, {"glm-5.2": ["kimi-code", "opencode-go-glm", "deepseek-v4-flash", "opencode-free", "hermes-local"]}, {"glm-turbo": ["kimi-code", "opencode-go-glm", "deepseek-v4-flash", "opencode-free", "hermes-local"]}, {"hermes-local": ["kimi-code", "opencode-go-glm", "deepseek-v4-flash", "opencode-free", "glm-coding"]}, {"glm-vision": ["vision-gemini", "vision-free", "vision-local"]}, {"glm-47": ["kimi-code", "deepseek-v4-flash", "opencode-free", "hermes-local"]}, {"kimi-code": ["opencode-go-kimi", "deepseek-v4-flash", "hermes-local"]}, {"kimi-code-k3": ["kimi-code", "glm-coding", "deepseek-v4-flash", "hermes-local"]}, {"deepseek-v4-flash": ["opencode-free", "kimi-code", "hermes-local"]}, {"nemotron3-free": ["deepseek-v4-flash", "opencode-free", "hermes-local"]}, {"laguna-free": ["deepseek-v4-flash", "opencode-free", "hermes-local"]}, {"vision-free": ["vision-gemini", "vision-local"]}, {"cloud-fallback": ["deepseek-v4-flash", "kimi-code", "hermes-local"]}]   # 2026-08-03: DeepSeek V4-Flash agent post-train (MIT open weights) inserted as coding-class free rung AHEAD of laguna/nemotron free. Dropped nemotron3-free + laguna-free from primary coding chains (not agent_capable for hermes-yolo fail-closed). Prior 2026-07-31 note: kimi-code ahead of opencode-go-glm. Still NO per-token Moonshot/NIM in auto chains. 2026-08-03: midstream groups for nemotron3-free/laguna-free/vision-free/cloud-fallback so Nvidia ResourceExhausted does not emit No fallback model group.
   context_window_fallbacks: [{"hermes-local": ["glm-coding", "kimi-code-k3"]}, {"glm-turbo": ["glm-coding", "kimi-code-k3"]}, {"kimi-code": ["kimi-code-k3", "glm-coding"]}, {"glm-vision": ["vision-gemini", "vision-free"]}]   # >ctx: 1M glm-coding OR Allegretto kimi-code-k3 (1M, flat). glm-vision 2026-07-28: image-bearing requests reroute here; GLM-4.6V caps 65K — vision-gemini 1M / $0.
   content_policy_fallbacks: [{"glm-coding": ["hermes-local"]}, {"glm-turbo": ["hermes-local"]}]   # provider content-policy refusal => local model (separate trigger class per LiteLLM reliability docs)
 
