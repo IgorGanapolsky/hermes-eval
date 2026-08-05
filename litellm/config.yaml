@@ -20,16 +20,8 @@ model_list:
   # Mac mini Tailscale hermes-local REMOVED 2026-08-05: offline mini hangs LB requests
   # until cool-down; re-add only when 100.94.135.78:11436 health-probes green.
 
-  # ---- Local fallback: smaller/faster model on the Mac Pro ----
-  # Same weights as hermes-local — alias for emergency/fast paths without loading a second model.
-  - model_name: hermes-local-fast
-    litellm_params:
-      model: ollama_chat/qwen2.5:3b-64k
-      api_base: http://127.0.0.1:11434
-      num_ctx: 65536
-      keep_alive: "15m"
-      rpm: 90
-    model_info: {mode: chat, input_cost_per_token: 0, output_cost_per_token: 0, max_input_tokens: 65536, max_output_tokens: 8192}
+  # hermes-local-fast REMOVED 2026-08-05: same ollama target as hermes-local but hung (0-byte timeout).
+  # Use model name hermes-local for all offline emergency rungs — zero dual-alias debt.
 
   - model_name: omlx-local
     litellm_params:
