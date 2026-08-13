@@ -13,6 +13,7 @@ Curate these into golden.jsonl with error analysis; mine drift from the token/la
 import contextlib
 import json
 import os
+import re
 import time
 
 try:  # guarded so the pure helpers can be unit-tested without litellm installed
@@ -243,6 +244,44 @@ def extract_error_text(kwargs, response_obj):
     return str(slo.get("error_str") or "")
 
 
+# Provider error bodies echo the request back often enough that an unredacted error
+# field would turn this log into a credential store. traffic.jsonl is world-readable
+# and ships to the distill dataset, so redaction happens here, not at read time.
+_SECRET_RE = re.compile(
+    r"(sk-[A-Za-z0-9_\-]{8,}"
+    r"|Bearer\s+[A-Za-z0-9_\-\.=]{8,}"
+    r"|gh[pousr]_[A-Za-z0-9]{16,}"
+    r"|(?i:api[-_]?key\"?\s*[:=]\s*\"?)[A-Za-z0-9_\-]{8,})"
+)
+ERROR_TEXT_MAX = int(os.environ.get("HERMES_ERROR_TEXT_MAX", "2000"))
+
+
+def redact_secrets(text):
+    """Replace credential-shaped substrings. Pure; never raises on odd input."""
+    if not text:
+        return ""
+    with contextlib.suppress(Exception):
+        return _SECRET_RE.sub("[REDACTED]", str(text))
+    return "[unredactable]"
+
+
+def failure_error_fields(kwargs, response_obj, status):
+    """Redacted, length-capped error text + exception class for failure records.
+
+    Returns {} on success: extract_error_text() falls through to response_obj, so on a
+    successful call it would serialize the entire response into an 'error' field. The
+    whole point of this pair is that build_record previously recorded status='failure'
+    with response=None and no error anywhere, which made 787 failures in one day
+    unattributable — the log could count them but never say why."""
+    if status != "failure":
+        return {"error": None, "error_class": None}
+    exc = kwargs.get("exception")
+    return {
+        "error": redact_secrets(extract_error_text(kwargs, response_obj))[:ERROR_TEXT_MAX] or None,
+        "error_class": type(exc).__name__ if exc is not None else None,
+    }
+
+
 def classify_failure(error_text):
     """Return an alert reason ONLY for GLM quota EXHAUSTION, else None.
 
@@ -415,8 +454,40 @@ def build_record(kwargs, response_obj, latency_s, status):
     content = extract_content(response_obj, slo)
     finish_reason = extract_finish_reason(response_obj, slo)
     tool_calls = has_tool_calls(response_obj)
+    # LiteLLM's standard_logging_object carries 39 fields; we were recording 13 and
+    # dropping the ones that answer the questions we actually ask of this log.
+    #
+    # model_group vs model is the important pair. model_group is what the CALLER asked
+    # for (e.g. "glm-coding"); model is what was SERVED. On 2026-08-05 glm-coding
+    # requests were being served by deepseek-v4-flash-free after a quota exhaustion —
+    # silent substitution that took a manual investigation to find, because the log only
+    # ever recorded one of the two names. With both, it is a one-line query.
+    #
+    # response_cost turns this from a token log into a dollar log, which is what
+    # "cost per accepted task" needs. api_base identifies WHICH box served a request:
+    # hermes-local round-robins across this Mac and a Tailscale mini, and a 90s stall
+    # traced to the mini lacking the model — invisible in a log without api_base.
+    #
+    # All reads are .get() with no fallback logic: this runs inside the gateway's
+    # logging path and must never raise on an unexpected payload shape.
+    metadata = slo.get("metadata") or {}
     return {
+        # Why a failure failed. Without these two, a failure record carries status
+        # ='failure', response=None and finish_reason=None — countable but never
+        # explainable (787 such records in a single day on 2026-08-13).
+        **failure_error_fields(kwargs, response_obj, status),
         "model": kwargs.get("model") or slo.get("model"),
+        "model_group": slo.get("model_group"),
+        "model_id": slo.get("model_id"),
+        "api_base": slo.get("api_base"),
+        "custom_llm_provider": slo.get("custom_llm_provider"),
+        "response_cost": slo.get("response_cost"),
+        "cache_hit": slo.get("cache_hit"),
+        "trace_id": slo.get("trace_id"),
+        "litellm_call_id": slo.get("litellm_call_id"),
+        # Where a caller-supplied workflow/task id rides, when one is passed. Null today;
+        # recording it now means callers can start attributing without a logger change.
+        "requester_metadata": metadata.get("requester_metadata"),
         "messages": kwargs.get("messages") or slo.get("messages"),
         "response": content,
         "finish_reason": finish_reason,

@@ -159,3 +159,75 @@ def test_extract_error_text_shapes():
 def test_send_ntfy_disabled_is_noop(monkeypatch):
     monkeypatch.setattr(hermes_logger, "ALERTS_ENABLED", False)
     assert hermes_logger.send_ntfy("t", "m") is False
+
+
+def test_module_imports_cleanly_under_gateway_semantics():
+    # Regression: a module-level re.compile() was added while 're' was unimported.
+    # py_compile PASSED (syntax was fine) and only a real import surfaced the NameError.
+    # This logger runs inside the proxy's logging path, so an import-time failure is a
+    # gateway outage. Import the module fresh rather than trusting the cached one.
+    import importlib
+
+    importlib.reload(hermes_logger)
+    assert hermes_logger.redact_secrets("plain text") == "plain text"
+
+
+def test_redact_secrets_scrubs_credential_shapes():
+    fake_openai = "sk-" + "A" * 24
+    fake_gh = "ghp_" + "B" * 20
+    fake_bearer = "Bearer " + "C" * 24
+    for secret, blob in (
+        (fake_openai, f"401 from provider: key {fake_openai} rejected"),
+        (fake_gh, f"header token {fake_gh} denied"),
+        (fake_bearer, f"Authorization: {fake_bearer}"),
+    ):
+        out = hermes_logger.redact_secrets(blob)
+        assert secret.split()[-1] not in out, f"leaked: {out}"
+        assert "[REDACTED]" in out
+
+
+def test_redact_secrets_never_raises_on_odd_input():
+    assert hermes_logger.redact_secrets(None) == ""
+    assert hermes_logger.redact_secrets("") == ""
+    assert hermes_logger.redact_secrets(12345) == "12345"
+
+
+def test_failure_error_fields_empty_on_success():
+    # extract_error_text() falls through to response_obj, so without the status gate a
+    # SUCCESSFUL call would serialize its whole response into 'error'.
+    big = {"choices": [{"message": {"content": "x" * 5000}}]}
+    got = hermes_logger.failure_error_fields({}, big, "success")
+    assert got == {"error": None, "error_class": None}
+
+
+def test_failure_error_fields_captures_and_caps():
+    class UpstreamBoom(Exception):
+        pass
+
+    exc = UpstreamBoom("429 rate limit exceeded " + "z" * 9000)
+    got = hermes_logger.failure_error_fields({"exception": exc}, None, "failure")
+    assert got["error_class"] == "UpstreamBoom"
+    assert "429 rate limit exceeded" in got["error"]
+    assert len(got["error"]) <= hermes_logger.ERROR_TEXT_MAX
+
+
+def test_build_record_records_why_a_failure_failed():
+    # The bug this fixes: 787 failures in one day logged status='failure', response=None,
+    # finish_reason=None and NO error field -> the log could count them, never explain them.
+    class Boom(Exception):
+        pass
+
+    rec = hermes_logger.build_record(
+        {"model": "deepseek-v4-flash", "exception": Boom("upstream 429")}, None, 0.13, "failure"
+    )
+    assert rec["status"] == "failure"
+    assert rec["error_class"] == "Boom"
+    assert "upstream 429" in rec["error"]
+
+
+def test_build_record_success_still_has_no_error():
+    rec = hermes_logger.build_record(
+        {"model": "m"}, {"choices": [{"message": {"content": "hi"}, "finish_reason": "stop"}]}, 1.0, "success"
+    )
+    assert rec["error"] is None and rec["error_class"] is None
+    assert rec["response"] == "hi"
