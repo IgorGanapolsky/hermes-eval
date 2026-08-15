@@ -52,9 +52,7 @@ def test_rewrite_glm_thinking_forces_enabled():
     assert k["thinking"]["type"] == "enabled"
     assert k["reasoning_effort"] == "low"
     assert k["extra_body"]["thinking"]["type"] == "enabled"
-    keep = hermes_logger.rewrite_glm_thinking(
-        {"model": "glm-5.3", "reasoning_effort": "max"}
-    )
+    keep = hermes_logger.rewrite_glm_thinking({"model": "glm-5.3", "reasoning_effort": "max"})
     assert keep["reasoning_effort"] == "max"
     local = hermes_logger.rewrite_glm_thinking({"model": "hermes-local"})
     assert "thinking" not in local
