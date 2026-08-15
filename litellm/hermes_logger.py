@@ -133,6 +133,44 @@ def raise_glm_min_max_tokens(kwargs, floor=None):
     return kwargs
 
 
+def _thinking_blob(obj):
+    if not isinstance(obj, dict):
+        return None
+    if isinstance(obj.get("thinking"), dict):
+        return obj["thinking"]
+    extra = obj.get("extra_body")
+    if isinstance(extra, dict) and isinstance(extra.get("thinking"), dict):
+        return extra["thinking"]
+    return None
+
+
+def rewrite_glm_thinking(kwargs):
+    """GLM-5.3 (and Coding Plan 5.2→5.3 auto-route) rejects thinking.type=disabled.
+
+    Force enabled + a valid reasoning_effort. Pure helper; mutates kwargs.
+    """
+    model, dep_model = _model_strings(kwargs)
+    hay = f"{model} {dep_model}".lower()
+    if "glm" not in hay:
+        return kwargs
+    if model.startswith("openrouter/") or dep_model.startswith("openrouter/"):
+        return kwargs
+    thinking = _thinking_blob(kwargs) or {}
+    disabled = str(thinking.get("type") or "").lower() in {"disabled", "false", "none", "off"}
+    extra = kwargs.get("extra_body")
+    if not isinstance(extra, dict):
+        extra = {}
+        kwargs["extra_body"] = extra
+    effort = kwargs.get("reasoning_effort") or extra.get("reasoning_effort")
+    if str(effort).lower() not in {"low", "high", "max"}:
+        effort = "low" if disabled else "high"
+    extra["thinking"] = {"type": "enabled", "clear_thinking": False}
+    extra["reasoning_effort"] = effort
+    kwargs["thinking"] = extra["thinking"]
+    kwargs["reasoning_effort"] = effort
+    return kwargs
+
+
 # ---- Stale-tool-output pruning (deterministic, idempotent) ------------------------
 # Data science on the live log (2026-07-17, rotation 07-10→07-17: 1,911 calls, 23.17M
 # prompt tokens): on the biggest GLM calls (140K+ tokens, 420+ messages) tool outputs
@@ -446,6 +484,7 @@ class HermesJSONLLogger(CustomLogger):
         ):  # each guard isolated: one failing must not skip others
             stub_stale_tool_outputs(kwargs)  # stale tool-output prune (GLM quota headroom)
         with contextlib.suppress(Exception):  # never break a request because of the guards
+            rewrite_glm_thinking(kwargs)  # GLM-5.3 cannot disable thinking
             raise_glm_min_max_tokens(kwargs)  # GLM reasoning floor (empty-content fix)
             return clamp_openrouter_max_tokens(kwargs)  # openrouter cap (last-resort 402 fix)
         return kwargs
