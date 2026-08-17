@@ -45,6 +45,19 @@ def test_glm_min_max_tokens_never_lowers_or_touches_non_glm():
     assert "max_tokens" not in k
 
 
+def test_rewrite_glm_thinking_forces_enabled():
+    k = hermes_logger.rewrite_glm_thinking(
+        {"model": "glm-coding", "thinking": {"type": "disabled"}}
+    )
+    assert k["thinking"]["type"] == "enabled"
+    assert k["reasoning_effort"] == "low"
+    assert k["extra_body"]["thinking"]["type"] == "enabled"
+    keep = hermes_logger.rewrite_glm_thinking({"model": "glm-5.3", "reasoning_effort": "max"})
+    assert keep["reasoning_effort"] == "max"
+    local = hermes_logger.rewrite_glm_thinking({"model": "hermes-local"})
+    assert "thinking" not in local
+
+
 def test_health_check_pings_are_filtered():
     assert hermes_logger.is_health_check([{"role": "user", "content": "Hey, how's it going?"}])
     assert hermes_logger.is_health_check([{"role": "user", "content": ""}])
