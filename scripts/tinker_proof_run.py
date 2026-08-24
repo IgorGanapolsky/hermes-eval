@@ -102,15 +102,20 @@ def main():
                 loss_fn_inputs={"target_tokens": tokens[1:], "weights": w[1:]},
             ),
             rendered.dropped_messages,
+            rendered.truncated_chars,
         )
 
     data = []
     context_pruned = 0
+    prompt_truncated = 0
+    truncated_chars_total = 0
     for m in exs:
         try:
-            datum, dropped_messages = to_datum(m)
+            datum, dropped_messages, truncated_chars = to_datum(m)
             data.append(datum)
-            context_pruned += int(dropped_messages > 0)
+            context_pruned += int(dropped_messages > 0 or truncated_chars > 0)
+            prompt_truncated += int(truncated_chars > 0)
+            truncated_chars_total += truncated_chars
         except Exception:
             # Do not print validation payloads: conversations can contain private traffic.
             print("[proof]   skip one (render validation)")
@@ -122,7 +127,8 @@ def main():
         )
     print(
         f"[proof] rendered {len(data)} training examples "
-        f"(context-pruned={context_pruned}; max_tokens={MAX_CONTEXT_TOKENS})",
+        f"(context-pruned={context_pruned}; prompt-truncated={prompt_truncated} "
+        f"rows/{truncated_chars_total} chars; max_tokens={MAX_CONTEXT_TOKENS})",
         flush=True,
     )
 
