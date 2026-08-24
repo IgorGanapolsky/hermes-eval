@@ -294,14 +294,27 @@ def render_with_context_limit(
         )
         chars_per_token = max(content_chars / rendered_len, 0.25)
         overshoot_chars = int((rendered_len - max_tokens) * chars_per_token) + len(TRUNCATION_MARKER)
-        target_index = max(prompt_indexes, key=lambda index: len(working[index]["content"]))
-        try:
-            working[target_index]["content"] = truncate_prompt_middle(
-                working[target_index]["content"], overshoot_chars
-            )
-        except TrainingDataError:
+        # Largest prompt first, then spill the remainder across the other
+        # eligible prompts — each capped at its own safe capacity, so a row two
+        # medium prompts could rescue together is not abandoned.
+        remaining = overshoot_chars
+        removed_any = False
+        for target_index in sorted(
+            prompt_indexes, key=lambda index: len(working[index]["content"]), reverse=True
+        ):
+            if remaining <= 0:
+                break
+            content = working[target_index]["content"]
+            capacity = len(content) - _MIN_KEPT_PROMPT_CHARS - len(TRUNCATION_MARKER)
+            if capacity <= 0:
+                continue
+            cut = min(remaining, capacity)
+            working[target_index]["content"] = truncate_prompt_middle(content, cut)
+            total_truncated += cut
+            remaining -= cut
+            removed_any = True
+        if not removed_any:
             break
-        total_truncated += overshoot_chars
     raise TrainingDataError("latest user-to-assistant target exceeds the model context limit")
 
 
