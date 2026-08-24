@@ -224,3 +224,21 @@ def test_context_limit_rescue_preserves_canonical_error_for_tiny_rows():
             train_on_what="last-assistant",
             max_tokens=10,
         )
+
+
+def test_context_limit_spreads_truncation_across_prompts():
+    # Two medium prompts that only fit if BOTH are trimmed (single-prompt
+    # truncation cannot reach the limit while keeping the 512-char floor).
+    messages = [
+        {"role": "system", "content": "p" * 1100},
+        {"role": "user", "content": "q" * 1100},
+        {"role": "assistant", "content": "target"},
+    ]
+    rendered = render_with_context_limit(
+        FakeRenderer(),
+        messages,
+        train_on_what="last-assistant",
+        max_tokens=1200,
+    )
+    assert len(rendered.model_input.to_ints()) <= 1200
+    assert rendered.truncated_chars > 0
