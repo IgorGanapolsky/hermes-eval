@@ -226,9 +226,30 @@ def test_build_record_records_why_a_failure_failed():
     assert "upstream 429" in rec["error"]
 
 
+def test_fallback_attempt_count_from_previous_models():
+    n = hermes_logger.fallback_attempt_count(
+        {"metadata": {"previous_models": ["glm-5.3", "together-glm"]}}
+    )
+    assert n == 2
+    assert hermes_logger.fallback_attempt_count({}) == 0
+    rec = hermes_logger.build_record(
+        {
+            "model": "m",
+            "metadata": {"previous_models": ["a"]},
+        },
+        {"choices": [{"message": {"content": "hi"}, "finish_reason": "stop"}]},
+        1.0,
+        "success",
+    )
+    assert rec["fallback_attempts"] == 1
+
+
 def test_build_record_success_still_has_no_error():
     rec = hermes_logger.build_record(
-        {"model": "m"}, {"choices": [{"message": {"content": "hi"}, "finish_reason": "stop"}]}, 1.0, "success"
+        {"model": "m"},
+        {"choices": [{"message": {"content": "hi"}, "finish_reason": "stop"}]},
+        1.0,
+        "success",
     )
     assert rec["error"] is None and rec["error_class"] is None
     assert rec["response"] == "hi"

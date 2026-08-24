@@ -206,6 +206,25 @@ def route_exhausted_glm(data, now=None, marker_path=None, rewrite_to=None):
     return data
 
 
+def fallback_attempt_count(kwargs, slo=None):
+    """How many prior models LiteLLM already tried (Ramp-style receipt field)."""
+    slo = slo or {}
+    meta = kwargs.get("metadata") if isinstance(kwargs.get("metadata"), dict) else {}
+    lp = kwargs.get("litellm_params") if isinstance(kwargs.get("litellm_params"), dict) else {}
+    lp_meta = lp.get("metadata") if isinstance(lp.get("metadata"), dict) else {}
+    prev = (
+        meta.get("previous_models") or lp_meta.get("previous_models") or slo.get("previous_models")
+    )
+    if isinstance(prev, list):
+        return len(prev)
+    n = kwargs.get("attempted_fallbacks")
+    if n is None:
+        n = slo.get("attempted_fallbacks")
+    if isinstance(n, int) and n >= 0:
+        return n
+    return 0
+
+
 def record_quota_exhaustion(error_text, marker_path=None, rewrite_to=None):
     """If this failure is a z.ai weekly/monthly cap, write/refresh the marker."""
     if not is_glm_quota_error(error_text):
@@ -619,6 +638,7 @@ def build_record(kwargs, response_obj, latency_s, status):
         "completion_tokens": slo.get("completion_tokens"),
         "total_tokens": slo.get("total_tokens"),
         "latency_s": latency_s,
+        "fallback_attempts": fallback_attempt_count(kwargs, slo),
         "status": status,
     }
 
@@ -668,7 +688,9 @@ class HermesJSONLLogger(CustomLogger):
             rec["ts_end"] = str(end_time)
             if status == "failure":
                 with contextlib.suppress(Exception):
-                    record_quota_exhaustion(rec.get("error") or extract_error_text(kwargs, response_obj))
+                    record_quota_exhaustion(
+                        rec.get("error") or extract_error_text(kwargs, response_obj)
+                    )
             os.makedirs(os.path.dirname(LOG_PATH), exist_ok=True)
             with open(LOG_PATH, "a", encoding="utf-8") as f:
                 f.write(json.dumps(rec, default=str, ensure_ascii=False) + "\n")
