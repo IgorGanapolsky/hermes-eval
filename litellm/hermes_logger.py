@@ -13,7 +13,9 @@ Curate these into golden.jsonl with error analysis; mine drift from the token/la
 import contextlib
 import json
 import os
+import re
 import time
+from datetime import datetime
 
 try:  # guarded so the pure helpers can be unit-tested without litellm installed
     from litellm.integrations.custom_logger import CustomLogger
@@ -60,6 +62,31 @@ VISION_CAPABLE_MODELS = {
 # OpenAI-compatible multimodal content blocks, across the spellings clients emit.
 IMAGE_PART_TYPES = {"image_url", "image", "input_image"}
 
+# z.ai Coding Plan weekly/monthly 429 is a STATE until the reset timestamp in the
+# error body (desktop streaming then surfaces "No deployments available" because
+# pre_call_checks + 45s cooldown refuse the glm-* group before fallbacks). Remap
+# text GLM groups onto a different quota pool before the router runs.
+QUOTA_MARKER_PATH = os.environ.get(
+    "HERMES_ZAI_QUOTA_MARKER",
+    os.path.expanduser("~/.hermes/quota/zai-coding-exhausted-until.json"),
+)
+QUOTA_REWRITE_MODEL = os.environ.get("HERMES_ZAI_QUOTA_REWRITE_MODEL", "together-glm")
+GLM_TEXT_GROUPS = {
+    "glm-5.3",
+    "glm-coding",
+    "glm-5.2",
+    "glm-turbo",
+    "glm-47",
+    "glm-4.7",
+    "glm-4.7-flash",
+}
+RESET_AT_RE = re.compile(r"reset at (\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})", re.I)
+QUOTA_EXHAUST_NEEDLES = (
+    "weekly/monthly limit exhausted",
+    "limit will reset at",
+    "code 1310",
+)
+
 
 def has_image_parts(messages):
     """True if any message carries an image content block."""
@@ -93,6 +120,100 @@ def route_image_request_to_vision(data, vision_model=None, vision_capable=None):
     # (the JSONL record already lands under the model that actually ran).
     print(f"[hermes_logger] image input detected: routing {requested} -> {vision_model}")
     return data
+
+
+def parse_quota_until(error_text):
+    """Parse z.ai 'reset at YYYY-MM-DD HH:MM:SS' from a 429 body. None if absent."""
+    if not error_text:
+        return None
+    m = RESET_AT_RE.search(str(error_text))
+    if not m:
+        return None
+    with contextlib.suppress(ValueError):
+        return datetime.strptime(m.group(1), "%Y-%m-%d %H:%M:%S")
+    return None
+
+
+def is_glm_quota_error(error_text):
+    et = str(error_text or "").lower()
+    return any(n in et for n in QUOTA_EXHAUST_NEEDLES)
+
+
+def write_quota_marker(until, marker_path=None, rewrite_to=None):
+    """Persist exhaustion until `until` (datetime). Returns the path written."""
+    path = marker_path or QUOTA_MARKER_PATH
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    payload = {
+        "until": until.strftime("%Y-%m-%d %H:%M:%S") if until else None,
+        "rewrite_to": rewrite_to or QUOTA_REWRITE_MODEL,
+        "source": "z.ai coding-plan 429 weekly/monthly",
+        "written_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+    }
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(payload, f)
+        f.write("\n")
+    return path
+
+
+def quota_exhausted(now=None, marker_path=None):
+    """True while the on-disk marker's until is in the future."""
+    path = marker_path or QUOTA_MARKER_PATH
+    if not os.path.isfile(path):
+        return False
+    try:
+        with open(path, encoding="utf-8") as f:
+            payload = json.load(f)
+    except (OSError, json.JSONDecodeError, TypeError):
+        return False
+    raw = payload.get("until") if isinstance(payload, dict) else None
+    if not raw:
+        return False
+    try:
+        until = datetime.strptime(str(raw), "%Y-%m-%d %H:%M:%S")
+    except ValueError:
+        return False
+    return (now or datetime.now()) < until
+
+
+def route_exhausted_glm(data, now=None, marker_path=None, rewrite_to=None):
+    """Before routing: send text GLM groups off the dead z.ai plan.
+
+    Pure helper. No-op for vision, non-GLM, or when the marker is absent/expired.
+    Desktop streaming 429s are this miss — cooldown + pre_call_checks never reach
+    fallbacks. Changing the model group here makes the first hop a live pool.
+    """
+    if not isinstance(data, dict):
+        return data
+    requested = str(data.get("model") or "")
+    group = requested.split("/")[-1]
+    if group not in GLM_TEXT_GROUPS:
+        return data
+    if not quota_exhausted(now=now, marker_path=marker_path):
+        return data
+    dest = rewrite_to or QUOTA_REWRITE_MODEL
+    if group == dest:
+        return data
+    data["model"] = dest
+    # LiteLLM sometimes routes on model_group even after model is rewritten.
+    if str(data.get("model_group") or "").split("/")[-1] in GLM_TEXT_GROUPS:
+        data["model_group"] = dest
+    meta = data.get("metadata")
+    if not isinstance(meta, dict):
+        meta = {}
+        data["metadata"] = meta
+    meta["zai_quota_rewrite"] = {"from": requested, "to": dest}
+    print(f"[hermes_logger] z.ai coding quota exhausted: routing {requested} -> {dest}")
+    return data
+
+
+def record_quota_exhaustion(error_text, marker_path=None, rewrite_to=None):
+    """If this failure is a z.ai weekly/monthly cap, write/refresh the marker."""
+    if not is_glm_quota_error(error_text):
+        return None
+    until = parse_quota_until(error_text)
+    if until is None:
+        until = datetime.now().replace(hour=23, minute=59, second=59, microsecond=0)
+    return write_quota_marker(until, marker_path=marker_path, rewrite_to=rewrite_to)
 
 
 def _model_strings(kwargs):
@@ -130,44 +251,6 @@ def raise_glm_min_max_tokens(kwargs, floor=None):
     mt = kwargs.get("max_tokens")
     if isinstance(mt, int) and mt < floor:
         kwargs["max_tokens"] = floor
-    return kwargs
-
-
-def _thinking_blob(obj):
-    if not isinstance(obj, dict):
-        return None
-    if isinstance(obj.get("thinking"), dict):
-        return obj["thinking"]
-    extra = obj.get("extra_body")
-    if isinstance(extra, dict) and isinstance(extra.get("thinking"), dict):
-        return extra["thinking"]
-    return None
-
-
-def rewrite_glm_thinking(kwargs):
-    """GLM-5.3 (and Coding Plan 5.2→5.3 auto-route) rejects thinking.type=disabled.
-
-    Force enabled + a valid reasoning_effort. Pure helper; mutates kwargs.
-    """
-    model, dep_model = _model_strings(kwargs)
-    hay = f"{model} {dep_model}".lower()
-    if "glm" not in hay:
-        return kwargs
-    if model.startswith("openrouter/") or dep_model.startswith("openrouter/"):
-        return kwargs
-    thinking = _thinking_blob(kwargs) or {}
-    disabled = str(thinking.get("type") or "").lower() in {"disabled", "false", "none", "off"}
-    extra = kwargs.get("extra_body")
-    if not isinstance(extra, dict):
-        extra = {}
-        kwargs["extra_body"] = extra
-    effort = kwargs.get("reasoning_effort") or extra.get("reasoning_effort")
-    if str(effort).lower() not in {"low", "high", "max"}:
-        effort = "low" if disabled else "high"
-    extra["thinking"] = {"type": "enabled", "clear_thinking": False}
-    extra["reasoning_effort"] = effort
-    kwargs["thinking"] = extra["thinking"]
-    kwargs["reasoning_effort"] = effort
     return kwargs
 
 
@@ -279,6 +362,44 @@ def extract_error_text(kwargs, response_obj):
             return str(cand)
     slo = kwargs.get("standard_logging_object") or {}
     return str(slo.get("error_str") or "")
+
+
+# Provider error bodies echo the request back often enough that an unredacted error
+# field would turn this log into a credential store. traffic.jsonl is world-readable
+# and ships to the distill dataset, so redaction happens here, not at read time.
+_SECRET_RE = re.compile(
+    r"(sk-[A-Za-z0-9_\-]{8,}"
+    r"|Bearer\s+[A-Za-z0-9_\-\.=]{8,}"
+    r"|gh[pousr]_[A-Za-z0-9]{16,}"
+    r"|(?i:api[-_]?key\"?\s*[:=]\s*\"?)[A-Za-z0-9_\-]{8,})"
+)
+ERROR_TEXT_MAX = int(os.environ.get("HERMES_ERROR_TEXT_MAX", "2000"))
+
+
+def redact_secrets(text):
+    """Replace credential-shaped substrings. Pure; never raises on odd input."""
+    if not text:
+        return ""
+    with contextlib.suppress(Exception):
+        return _SECRET_RE.sub("[REDACTED]", str(text))
+    return "[unredactable]"
+
+
+def failure_error_fields(kwargs, response_obj, status):
+    """Redacted, length-capped error text + exception class for failure records.
+
+    Returns {} on success: extract_error_text() falls through to response_obj, so on a
+    successful call it would serialize the entire response into an 'error' field. The
+    whole point of this pair is that build_record previously recorded status='failure'
+    with response=None and no error anywhere, which made 787 failures in one day
+    unattributable — the log could count them but never say why."""
+    if status != "failure":
+        return {"error": None, "error_class": None}
+    exc = kwargs.get("exception")
+    return {
+        "error": redact_secrets(extract_error_text(kwargs, response_obj))[:ERROR_TEXT_MAX] or None,
+        "error_class": type(exc).__name__ if exc is not None else None,
+    }
 
 
 def classify_failure(error_text):
@@ -453,8 +574,40 @@ def build_record(kwargs, response_obj, latency_s, status):
     content = extract_content(response_obj, slo)
     finish_reason = extract_finish_reason(response_obj, slo)
     tool_calls = has_tool_calls(response_obj)
+    # LiteLLM's standard_logging_object carries 39 fields; we were recording 13 and
+    # dropping the ones that answer the questions we actually ask of this log.
+    #
+    # model_group vs model is the important pair. model_group is what the CALLER asked
+    # for (e.g. "glm-coding"); model is what was SERVED. On 2026-08-05 glm-coding
+    # requests were being served by deepseek-v4-flash-free after a quota exhaustion —
+    # silent substitution that took a manual investigation to find, because the log only
+    # ever recorded one of the two names. With both, it is a one-line query.
+    #
+    # response_cost turns this from a token log into a dollar log, which is what
+    # "cost per accepted task" needs. api_base identifies WHICH box served a request:
+    # hermes-local round-robins across this Mac and a Tailscale mini, and a 90s stall
+    # traced to the mini lacking the model — invisible in a log without api_base.
+    #
+    # All reads are .get() with no fallback logic: this runs inside the gateway's
+    # logging path and must never raise on an unexpected payload shape.
+    metadata = slo.get("metadata") or {}
     return {
+        # Why a failure failed. Without these two, a failure record carries status
+        # ='failure', response=None and finish_reason=None — countable but never
+        # explainable (787 such records in a single day on 2026-08-13).
+        **failure_error_fields(kwargs, response_obj, status),
         "model": kwargs.get("model") or slo.get("model"),
+        "model_group": slo.get("model_group"),
+        "model_id": slo.get("model_id"),
+        "api_base": slo.get("api_base"),
+        "custom_llm_provider": slo.get("custom_llm_provider"),
+        "response_cost": slo.get("response_cost"),
+        "cache_hit": slo.get("cache_hit"),
+        "trace_id": slo.get("trace_id"),
+        "litellm_call_id": slo.get("litellm_call_id"),
+        # Where a caller-supplied workflow/task id rides, when one is passed. Null today;
+        # recording it now means callers can start attributing without a logger change.
+        "requester_metadata": metadata.get("requester_metadata"),
         "messages": kwargs.get("messages") or slo.get("messages"),
         "response": content,
         "finish_reason": finish_reason,
@@ -475,7 +628,9 @@ class HermesJSONLLogger(CustomLogger):
         """Proxy-level, BEFORE routing — the only place a different model group can still
         be chosen (the deployment hook below runs after that decision)."""
         with contextlib.suppress(Exception):  # never break a request because of the guard
-            return route_image_request_to_vision(data)
+            data = route_image_request_to_vision(data)
+        with contextlib.suppress(Exception):
+            data = route_exhausted_glm(data)
         return data
 
     async def async_pre_call_deployment_hook(self, kwargs, call_type):
@@ -484,7 +639,6 @@ class HermesJSONLLogger(CustomLogger):
         ):  # each guard isolated: one failing must not skip others
             stub_stale_tool_outputs(kwargs)  # stale tool-output prune (GLM quota headroom)
         with contextlib.suppress(Exception):  # never break a request because of the guards
-            rewrite_glm_thinking(kwargs)  # GLM-5.3 cannot disable thinking
             raise_glm_min_max_tokens(kwargs)  # GLM reasoning floor (empty-content fix)
             return clamp_openrouter_max_tokens(kwargs)  # openrouter cap (last-resort 402 fix)
         return kwargs
@@ -512,6 +666,9 @@ class HermesJSONLLogger(CustomLogger):
                 latency = (end_time - start_time).total_seconds()
             rec = build_record(kwargs, response_obj, latency, status)
             rec["ts_end"] = str(end_time)
+            if status == "failure":
+                with contextlib.suppress(Exception):
+                    record_quota_exhaustion(rec.get("error") or extract_error_text(kwargs, response_obj))
             os.makedirs(os.path.dirname(LOG_PATH), exist_ok=True)
             with open(LOG_PATH, "a", encoding="utf-8") as f:
                 f.write(json.dumps(rec, default=str, ensure_ascii=False) + "\n")
