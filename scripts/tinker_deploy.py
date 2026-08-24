@@ -268,6 +268,8 @@ def train_checkpoint():
 
     data = []
     context_pruned = 0
+    prompt_truncated = 0
+    truncated_chars_total = 0
     for msgs in rows:
         try:
             conv = to_renderer_messages(msgs, ToolCall.model_validate)
@@ -287,13 +289,18 @@ def train_checkpoint():
                         loss_fn_inputs={"target_tokens": toks[1:], "weights": wl[1:]},
                     )
                 )
-                context_pruned += int(rendered.dropped_messages > 0)
+                context_pruned += int(
+                    rendered.dropped_messages > 0 or rendered.truncated_chars > 0
+                )
+                prompt_truncated += int(rendered.truncated_chars > 0)
+                truncated_chars_total += rendered.truncated_chars
         except Exception:
             continue
     require_render_coverage(len(data), len(rows))
     log(
         f"rendered {len(data)} examples "
-        f"(context-pruned={context_pruned}; max_tokens={MAX_CONTEXT_TOKENS}); training…"
+        f"(context-pruned={context_pruned}; prompt-truncated={prompt_truncated} "
+        f"rows/{truncated_chars_total} chars; max_tokens={MAX_CONTEXT_TOKENS}); training…"
     )
     for s in range(STEPS):
         log(f"step {s + 1}/{STEPS} on Tinker cloud (~20-60s)…")
