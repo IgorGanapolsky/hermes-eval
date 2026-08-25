@@ -290,10 +290,14 @@ def render_with_context_limit(
         # Measure this renderer's chars-per-token on the actual content instead of
         # guessing; exact removal plus iteration converges without over-cutting.
         content_chars = sum(
-            len(message["content"]) for message in working if isinstance(message.get("content"), str)
+            len(message["content"])
+            for message in working
+            if isinstance(message.get("content"), str)
         )
         chars_per_token = max(content_chars / rendered_len, 0.25)
-        overshoot_chars = int((rendered_len - max_tokens) * chars_per_token) + len(TRUNCATION_MARKER)
+        overshoot_chars = int((rendered_len - max_tokens) * chars_per_token) + len(
+            TRUNCATION_MARKER
+        )
         # Largest prompt first, then spill the remainder across the other
         # eligible prompts — each capped at its own safe capacity, so a row two
         # medium prompts could rescue together is not abandoned.
