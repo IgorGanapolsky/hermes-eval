@@ -194,7 +194,10 @@ def smoke_and_alias_model():
     smoke_env["OLLAMA_KEEP_ALIVE"] = "0"
     smoke_timeout = int(os.environ.get("TINKER_DEPLOY_SMOKE_TIMEOUT", "180"))
     result = subprocess.run(
-        [OLLAMA_BIN, "run", OLLAMA_NAME, f"Reply with exactly: {SMOKE_SENTINEL}"],
+        # --think=false: the distilled Qwen3 is a reasoning model; without it the
+        # sentinel arrives wrapped in thinking text and the exact match fails even
+        # though the model is healthy (live deploy hit this on 2026-08-24).
+        [OLLAMA_BIN, "run", OLLAMA_NAME, "--think=false", f"Reply with exactly: {SMOKE_SENTINEL}"],
         capture_output=True,
         text=True,
         timeout=smoke_timeout,
