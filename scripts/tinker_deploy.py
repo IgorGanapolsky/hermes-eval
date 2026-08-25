@@ -292,9 +292,7 @@ def train_checkpoint():
                         loss_fn_inputs={"target_tokens": toks[1:], "weights": wl[1:]},
                     )
                 )
-                context_pruned += int(
-                    rendered.dropped_messages > 0 or rendered.truncated_chars > 0
-                )
+                context_pruned += int(rendered.dropped_messages > 0 or rendered.truncated_chars > 0)
                 prompt_truncated += int(rendered.truncated_chars > 0)
                 truncated_chars_total += rendered.truncated_chars
         except Exception:
