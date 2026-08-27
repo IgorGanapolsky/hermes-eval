@@ -37,19 +37,37 @@ jobs:
       PROMPTFOO_DISABLE_UPDATE: "1"
       PROMPTFOO_CACHE_PATH: ${{ github.workspace }}/.promptfoo-cache
     steps:
+      # Dependabot-triggered runs (and fork PRs) get no repo secrets, so the cloud
+      # smoke gate can never pass for them. Skip it cleanly instead of failing;
+      # runs that do have the key are unaffected.
+      - name: Detect cloud API key
+        id: cloudkey
+        run: |
+          if [ -n "${OPENROUTER_API_KEY}" ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "SKIP: OPENROUTER_API_KEY is empty (dependabot-triggered and fork runs get no repo secrets) — skipping cloud smoke gate."
+            echo "::notice title=cloud smoke skipped::OPENROUTER_API_KEY is empty (dependabot/fork runs get no repo secrets); the cloud smoke gate was skipped, not failed."
+          fi
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: steps.cloudkey.outputs.present == 'true'
         with:
           persist-credentials: false
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        if: steps.cloudkey.outputs.present == 'true'
         with:
           node-version: "22"
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        if: steps.cloudkey.outputs.present == 'true'
         with:
           python-version: "3.12"
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        if: steps.cloudkey.outputs.present == 'true'
         with:
           path: ${{ github.workspace }}/.promptfoo-cache
           key: promptfoo-${{ hashFiles('eval/**') }}
           restore-keys: promptfoo-
       - name: Cloud smoke gate
+        if: steps.cloudkey.outputs.present == 'true'
         run: bash eval/run_gate.sh promptfooconfig.ci.yaml
