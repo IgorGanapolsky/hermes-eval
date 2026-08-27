@@ -9,15 +9,17 @@ prompts:
 
 # No local fleet in CI -> use pinned zero-cost OpenRouter variants. This keeps the
 # smoke gate runnable when the account has no paid balance without random-model routing.
+# NOTE: openai/gpt-oss-20b:free was retired by OpenRouter (404 "unavailable for free",
+# observed 2026-08-25); pin a slug that is still on the live free tier.
 providers:
-  - id: openrouter:openai/gpt-oss-20b:free
-    config: {temperature: 0, max_tokens: 1024}   # reasoning model: leave room or content comes back null
+  - id: openrouter:z-ai/glm-5.2:free
+    config: {temperature: 0, max_tokens: 2048}   # reasoning model: leave room or content comes back null
 
 defaultTest:
   options:
     provider:
       text:
-        # Cross-family judge (Google vs OpenAI SUT). Both variants are zero-cost.
+        # Cross-family judge (Google judge vs Z.AI SUT). Both variants are zero-cost.
         id: openrouter:google/gemma-4-26b-a4b-it:free
 
 # Run with EVAL_SUBSET=ci-smoke EVAL_NO_EMBED=1 so it stays cheap and needs no embedding model.
