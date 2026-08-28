@@ -47,6 +47,28 @@ class RenderedTrainingExample:
     model_input: Any
     weights: Any
     dropped_messages: int
+    truncated_chars: int = 0
+
+
+# Providers cap training sequences hard (Tinker Qwen3-8B: 32768). Hermes traffic
+# carries a ~40K-token base prompt, so the irreducible system+user core alone can
+# exceed the cap. Rescue those rows by cutting the MIDDLE of the largest
+# system/user prompt — head and tail survive, the assistant target is untouched,
+# and the cut is recorded so nothing is silently discarded.
+TRUNCATION_MARKER = "\n…[training-context truncated]…\n"
+_MIN_KEPT_PROMPT_CHARS = 512
+_MAX_TRUNCATION_PASSES = 6
+
+
+def truncate_prompt_middle(text: str, remove_chars: int) -> str:
+    """Remove ``remove_chars`` from the middle of a prompt, keeping head and tail."""
+
+    keep = len(text) - remove_chars - len(TRUNCATION_MARKER)
+    if keep < _MIN_KEPT_PROMPT_CHARS:
+        raise TrainingDataError("prompt too small to truncate safely")
+    head = keep * 2 // 3
+    tail = keep - head
+    return text[:head] + TRUNCATION_MARKER + text[-tail:]
 
 
 def validate_holdout_ratio(value: float) -> float:
@@ -232,13 +254,71 @@ def render_with_context_limit(
                 )
     candidates.sort(key=lambda item: item[1])
 
+    best_len = None
     for candidate, dropped in candidates:
         model_input, weights = renderer.build_supervised_example(
             candidate,
             train_on_what=train_on_what,
         )
-        if len(model_input.to_ints()) <= max_tokens:
+        rendered_len = len(model_input.to_ints())
+        if rendered_len <= max_tokens:
             return RenderedTrainingExample(model_input, weights, dropped)
+        if best_len is None or rendered_len < best_len:
+            best_len = rendered_len
+
+    # Last resort: every turn-aligned candidate overflows, so the irreducible
+    # system+user core itself is too large. Cut the middle of the biggest
+    # system/user prompt in the SMALLEST candidate until the render fits.
+    candidate, dropped = candidates[-1]
+    working = [dict(message) for message in candidate]
+    prompt_indexes = [
+        index
+        for index, message in enumerate(working[:-1])
+        if message.get("role") in {"system", "user"} and isinstance(message.get("content"), str)
+    ]
+    if not prompt_indexes:
+        raise TrainingDataError("latest user-to-assistant target exceeds the model context limit")
+    total_truncated = 0
+    for _ in range(_MAX_TRUNCATION_PASSES):
+        model_input, weights = renderer.build_supervised_example(
+            working,
+            train_on_what=train_on_what,
+        )
+        rendered_len = len(model_input.to_ints())
+        if rendered_len <= max_tokens:
+            return RenderedTrainingExample(model_input, weights, dropped, total_truncated)
+        # Measure this renderer's chars-per-token on the actual content instead of
+        # guessing; exact removal plus iteration converges without over-cutting.
+        content_chars = sum(
+            len(message["content"])
+            for message in working
+            if isinstance(message.get("content"), str)
+        )
+        chars_per_token = max(content_chars / rendered_len, 0.25)
+        overshoot_chars = int((rendered_len - max_tokens) * chars_per_token) + len(
+            TRUNCATION_MARKER
+        )
+        # Largest prompt first, then spill the remainder across the other
+        # eligible prompts — each capped at its own safe capacity, so a row two
+        # medium prompts could rescue together is not abandoned.
+        remaining = overshoot_chars
+        removed_any = False
+        for target_index in sorted(
+            prompt_indexes, key=lambda index: len(working[index]["content"]), reverse=True
+        ):
+            if remaining <= 0:
+                break
+            content = working[target_index]["content"]
+            capacity = len(content) - _MIN_KEPT_PROMPT_CHARS - len(TRUNCATION_MARKER)
+            if capacity <= 0:
+                continue
+            cut = min(remaining, capacity)
+            working[target_index]["content"] = truncate_prompt_middle(content, cut)
+            total_truncated += cut
+            remaining -= cut
+            removed_any = True
+        if not removed_any:
+            break
     raise TrainingDataError("latest user-to-assistant target exceeds the model context limit")
 
 
