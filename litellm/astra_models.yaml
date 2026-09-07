@@ -1,0 +1,28 @@
+# Opt-in GPT-6 Astra. $10/mo hard cap via astra_budget.py. Not in default_fallbacks.
+# Auth comes from the process environment (start-proxy.sh). No secrets in this file.
+- model_name: gpt-6-astra
+  litellm_params:
+    model: openai/gpt-6-astra
+    drop_params: true
+    timeout: 45
+    max_completion_tokens: 800
+    reasoning_effort: low
+  model_info:
+    mode: chat
+    max_input_tokens: 128000
+    max_output_tokens: 800
+    input_cost_per_token: 0.00001
+    output_cost_per_token: 0.00005
+- model_name: astra
+  litellm_params:
+    model: openai/gpt-6-astra
+    drop_params: true
+    timeout: 45
+    max_completion_tokens: 800
+    reasoning_effort: low
+  model_info:
+    mode: chat
+    max_input_tokens: 128000
+    max_output_tokens: 800
+    input_cost_per_token: 0.00001
+    output_cost_per_token: 0.00005

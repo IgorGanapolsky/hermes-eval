@@ -33,6 +33,9 @@ Proxy auth: `LITELLM_MASTER_KEY` (local-dev default documented in SECURITY.md; t
 | `hermes-gemma` | gemma4-12b (LiteRT `:9379`) | Mac Pro | $0 | Cross-family eval JUDGE. |
 | `cloud-fallback` | GLM-5.2 via OpenRouter | cloud | **per-token** | Last resort only — double-charges on top of the subscription. |
 | `escalation` | sakana/fugu-ultra via OpenRouter | cloud | $5/$30 per 1M | OFF by default, deliberate invocation only. |
+| `gpt-6-astra` / `astra` | GPT-6 Astra (`openai/gpt-6-astra`) | OpenAI API | **$10/mo hard cap** | Opt-in only. Effort `low`, max 800 out tokens. Fast/Pro/Flex rewritten to standard. At $9.50 MTD → `glm-coding`. Ledger `~/.hermes/astra-spend.json`. |
+
+**Astra policy (2026-09-07):** never the default, never in `default_fallbacks`. Name `gpt-6-astra` or `astra` only for the hardest reasoning. Budget governor: `litellm/astra_budget.py`. Astra rejects `max_tokens` — the governor rewrites to `max_completion_tokens` (cap 800) and sets `disable_fallbacks` so a failed Astra call does not silently become local Qwen. Live launchd currently starts `start-proxy.shim.nous.sh` (local-first). That shim merges Astra into `config.runtime.yaml` and exports `OPENAI_API_KEY` from `VOICE_TOOLS_OPENAI_KEY`. Cap fallback on that path is `hermes-main` (`HERMES_ASTRA_FALLBACK`).
 
 **Fallback chains:** `glm-coding → hermes-local → cloud-fallback`;
 `glm-turbo → hermes-local → cloud-fallback` (NOT via glm-coding — a z.ai 429 caps both
