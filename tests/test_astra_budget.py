@@ -8,7 +8,10 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "litellm"))
+import yaml
+
 import astra_budget
+from merge_astra_route import merge
 
 
 def test_estimate_uses_standard_not_fast_rates() -> None:
@@ -78,8 +81,6 @@ def test_fast_or_pro_alias_is_rejected_to_standard(tmp_path: Path) -> None:
 
 
 def test_merge_inserts_fragment_once(tmp_path: Path) -> None:
-    from merge_astra_route import merge
-
     src = tmp_path / "config.yaml"
     src.write_text("model_list:\n- model_name: hermes-local\n\nrouter_settings:\n  timeout: 1\n")
     dest = tmp_path / "runtime.yaml"
@@ -95,13 +96,8 @@ def test_merge_inserts_fragment_once(tmp_path: Path) -> None:
 
 
 def test_merge_aligns_to_column0_list(tmp_path: Path) -> None:
-    import yaml
-    from merge_astra_route import merge
-
     src = tmp_path / "config.yaml"
-    src.write_text(
-        "model_list:\n- model_name: nim-nv-embed\n\nrouter_settings:\n  timeout: 1\n"
-    )
+    src.write_text("model_list:\n- model_name: nim-nv-embed\n\nrouter_settings:\n  timeout: 1\n")
     dest = tmp_path / "runtime.yaml"
     frag = Path(__file__).resolve().parents[1] / "litellm" / "astra_models.yaml"
     assert merge(src, frag, dest) == "merged"
@@ -124,8 +120,6 @@ def test_fallback_model_honors_env(monkeypatch, tmp_path: Path) -> None:
 
 
 def test_merge_injects_callback_when_logger_absent(tmp_path: Path) -> None:
-    from merge_astra_route import merge
-
     src = tmp_path / "config.yaml"
     src.write_text(
         "model_list:\n  - model_name: hermes-main\n\n"
@@ -141,8 +135,6 @@ def test_merge_injects_callback_when_logger_absent(tmp_path: Path) -> None:
 
 
 def test_merge_skips_callback_when_hermes_logger_present(tmp_path: Path) -> None:
-    from merge_astra_route import merge
-
     src = tmp_path / "config.yaml"
     src.write_text(
         "model_list:\n  - model_name: hermes-local\n\n"
@@ -156,13 +148,8 @@ def test_merge_skips_callback_when_hermes_logger_present(tmp_path: Path) -> None
 
 
 def test_merge_aligns_to_two_space_list(tmp_path: Path) -> None:
-    import yaml
-    from merge_astra_route import merge
-
     src = tmp_path / "config.yaml"
-    src.write_text(
-        "model_list:\n  - model_name: hermes-local\n\nrouter_settings:\n  timeout: 1\n"
-    )
+    src.write_text("model_list:\n  - model_name: hermes-local\n\nrouter_settings:\n  timeout: 1\n")
     dest = tmp_path / "runtime.yaml"
     frag = Path(__file__).resolve().parents[1] / "litellm" / "astra_models.yaml"
     assert merge(src, frag, dest) == "merged"

@@ -9,9 +9,9 @@ from __future__ import annotations
 
 import json
 import os
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 MONTHLY_CAP_USD = 10.0
 SOFT_STOP_USD = 9.50
@@ -44,16 +44,15 @@ ASTRA_ALIASES = frozenset(
 DEFAULT_LEDGER = Path.home() / ".hermes" / "astra-spend.json"
 
 
-def month_key(now: Optional[datetime] = None) -> str:
-    stamp = now or datetime.now(tz=timezone.utc)
+def month_key(now: datetime | None = None) -> str:
+    stamp = now or datetime.now(tz=UTC)
     return stamp.strftime("%Y-%m")
 
 
 def estimate_cost(prompt_tokens: int, completion_tokens: int) -> float:
-    return (
-        (max(0, int(prompt_tokens)) / 1_000_000.0) * INPUT_USD_PER_M
-        + (max(0, int(completion_tokens)) / 1_000_000.0) * OUTPUT_USD_PER_M
-    )
+    return (max(0, int(prompt_tokens)) / 1_000_000.0) * INPUT_USD_PER_M + (
+        max(0, int(completion_tokens)) / 1_000_000.0
+    ) * OUTPUT_USD_PER_M
 
 
 def is_astra(model: str) -> bool:
@@ -66,7 +65,7 @@ def _empty_ledger(month: str) -> dict[str, Any]:
     return {"month": month, "usd": 0.0, "calls": 0}
 
 
-def load_ledger(ledger_path: Optional[Path] = None) -> dict[str, Any]:
+def load_ledger(ledger_path: Path | None = None) -> dict[str, Any]:
     path = Path(ledger_path or os.environ.get("HERMES_ASTRA_LEDGER") or DEFAULT_LEDGER)
     month = month_key()
     if not path.is_file():
@@ -84,19 +83,19 @@ def load_ledger(ledger_path: Optional[Path] = None) -> dict[str, Any]:
     }
 
 
-def save_ledger(payload: dict[str, Any], ledger_path: Optional[Path] = None) -> Path:
+def save_ledger(payload: dict[str, Any], ledger_path: Path | None = None) -> Path:
     path = Path(ledger_path or os.environ.get("HERMES_ASTRA_LEDGER") or DEFAULT_LEDGER)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, indent=2) + "\n")
     return path
 
 
-def remaining_usd(ledger: Optional[dict[str, Any]] = None, ledger_path: Optional[Path] = None) -> float:
+def remaining_usd(ledger: dict[str, Any] | None = None, ledger_path: Path | None = None) -> float:
     body = ledger if ledger is not None else load_ledger(ledger_path)
     return max(0.0, MONTHLY_CAP_USD - float(body.get("usd") or 0))
 
 
-def guard_request(data: dict[str, Any], ledger_path: Optional[Path] = None) -> dict[str, Any]:
+def guard_request(data: dict[str, Any], ledger_path: Path | None = None) -> dict[str, Any]:
     """Clamp / rewrite an Astra request. No-op for every other model."""
     if not isinstance(data, dict):
         return data
@@ -137,12 +136,14 @@ def record_usage(
     model: str,
     prompt_tokens: int,
     completion_tokens: int,
-    ledger_path: Optional[Path] = None,
+    ledger_path: Path | None = None,
 ) -> dict[str, Any]:
     if not is_astra(model):
         return load_ledger(ledger_path)
     body = load_ledger(ledger_path)
-    body["usd"] = round(float(body.get("usd") or 0) + estimate_cost(prompt_tokens, completion_tokens), 6)
+    body["usd"] = round(
+        float(body.get("usd") or 0) + estimate_cost(prompt_tokens, completion_tokens), 6
+    )
     body["calls"] = int(body.get("calls") or 0) + 1
     body["month"] = month_key()
     save_ledger(body, ledger_path)

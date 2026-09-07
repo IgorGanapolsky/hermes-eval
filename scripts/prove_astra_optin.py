@@ -5,7 +5,6 @@ from __future__ import annotations
 
 import json
 import os
-import sys
 import time
 import urllib.error
 import urllib.request
@@ -42,12 +41,10 @@ def _req(path: str, payload: dict | None = None, timeout: float = 60.0) -> tuple
 
 def main() -> int:
     code, models = _req("/v1/models")
-    ids = sorted(
-        str(m.get("id") or "")
-        for m in (models.get("data") or [])
-        if isinstance(m, dict)
+    ids = sorted(str(m.get("id") or "") for m in (models.get("data") or []) if isinstance(m, dict))
+    print(
+        f"models_http={code} count={len(ids)} gpt-6-astra={('gpt-6-astra' in ids)} astra={('astra' in ids)}"
     )
-    print(f"models_http={code} count={len(ids)} gpt-6-astra={('gpt-6-astra' in ids)} astra={('astra' in ids)}")
     if code != 200 or "gpt-6-astra" not in ids:
         err = models.get("error") or models.get("message") or ""
         print(f"models_error={str(err)[:200]}")
@@ -66,10 +63,7 @@ def main() -> int:
     if choices:
         content = str((choices[0].get("message") or {}).get("content") or "")
     usage = ping.get("usage") or {}
-    print(
-        f"ping_http={code} model={ping.get('model')} "
-        f"content={content!r} usage={usage}"
-    )
+    print(f"ping_http={code} model={ping.get('model')} content={content!r} usage={usage}")
     if ping.get("error"):
         print(f"ping_error={str(ping.get('error'))[:240]}")
     time.sleep(0.4)
