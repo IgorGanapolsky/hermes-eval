@@ -37,6 +37,8 @@ Proxy auth: `LITELLM_MASTER_KEY` (local-dev default documented in SECURITY.md; t
 
 **Astra policy (2026-09-07):** never the default, never in `default_fallbacks`. Name `gpt-6-astra` or `astra` only for the hardest reasoning. Budget governor: `litellm/astra_budget.py`. Astra rejects `max_tokens` — the governor rewrites to `max_completion_tokens` (cap 800) and sets `disable_fallbacks` so a failed Astra call does not silently become local Qwen. Live launchd currently starts `start-proxy.shim.nous.sh` (local-first). That shim merges Astra into `config.runtime.yaml` and exports `OPENAI_API_KEY` from `VOICE_TOOLS_OPENAI_KEY`. Cap fallback on that path is `hermes-main` (`HERMES_ASTRA_FALLBACK`).
 
+**Astra as research intern (OpenAI 2026-09-06, not a launch):** OpenAI's own research org now runs ~3.1 agent-workdays per human workday; median researcher inference is >$600/day at API prices. Hermes is **not** that lab. Our hard cap is **$10/month**. Use Astra only as they define an automated research intern: a well-defined, human-directed task that would take a skilled person days — Build/Run/Analyze, not Decide/Design. Do not use it for office-hours debugging, routine coding, or parallel agent swarms. Humans keep priorities and the ship/pause call. Over half of OpenAI's successful 4–8h agent tasks still needed a human step-in; expect the same.
+
 **Fallback chains:** `glm-coding → hermes-local → cloud-fallback`;
 `glm-turbo → hermes-local → cloud-fallback` (NOT via glm-coding — a z.ai 429 caps both
 subscription routes); `hermes-local → glm-coding → cloud-fallback`.
