@@ -651,6 +651,10 @@ class HermesJSONLLogger(CustomLogger):
             data = route_image_request_to_vision(data)
         with contextlib.suppress(Exception):
             data = route_exhausted_glm(data)
+        with contextlib.suppress(Exception):
+            from astra_budget import guard_request as _astra_guard
+
+            data = _astra_guard(data)
         return data
 
     async def async_pre_call_deployment_hook(self, kwargs, call_type):
@@ -686,6 +690,15 @@ class HermesJSONLLogger(CustomLogger):
                 latency = (end_time - start_time).total_seconds()
             rec = build_record(kwargs, response_obj, latency, status)
             rec["ts_end"] = str(end_time)
+            if status == "success":
+                with contextlib.suppress(Exception):
+                    from astra_budget import record_usage as _astra_record
+
+                    _astra_record(
+                        str(rec.get("model") or ""),
+                        int(rec.get("prompt_tokens") or 0),
+                        int(rec.get("completion_tokens") or 0),
+                    )
             if status == "failure":
                 with contextlib.suppress(Exception):
                     record_quota_exhaustion(

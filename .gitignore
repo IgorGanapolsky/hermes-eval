@@ -8,6 +8,7 @@ __pycache__/
 *.pyc
 .promptfoo/
 proxy.log
+litellm/config.runtime.yaml
 
 # local code-graph tool artifacts (not part of this project)
 graphify-out/

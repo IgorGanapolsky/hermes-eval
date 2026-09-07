@@ -35,6 +35,16 @@ fi
 if grep -q '^TOGETHER_API_KEY=' "$HOME/.hermes/.env" 2>/dev/null; then
   export TOGETHER_API_KEY="$(grep '^TOGETHER_API_KEY=' "$HOME/.hermes/.env" | tail -1 | cut -d= -f2-)"
 fi
+# GPT-6 Astra is opt-in ($10/mo hard cap). Prefer OPENAI_API_KEY; else reuse the
+# existing project key already used for voice tools. Never default the fleet here.
+if [ -z "${OPENAI_API_KEY:-}" ] && [ -f "$HOME/.hermes/.env" ]; then
+  if grep -q '^OPENAI_API_KEY=' "$HOME/.hermes/.env"; then
+    export OPENAI_API_KEY="$(grep '^OPENAI_API_KEY=' "$HOME/.hermes/.env" | tail -1 | cut -d= -f2-)"
+  elif grep -q '^VOICE_TOOLS_OPENAI_KEY=' "$HOME/.hermes/.env"; then
+    export OPENAI_API_KEY="$(grep '^VOICE_TOOLS_OPENAI_KEY=' "$HOME/.hermes/.env" | tail -1 | cut -d= -f2-)"
+  fi
+fi
 export HERMES_LOG_PATH="${HERMES_LOG_PATH:-$HOME/.hermes/litellm-logs/traffic.jsonl}"
 LITELLM_BIN="${LITELLM_BIN:-$HOME/.local/bin/litellm}"
-exec "$LITELLM_BIN" --config "$HERE/config.yaml" --port "${LITELLM_PORT:-4010}"
+python3 "$HERE/merge_astra_route.py" "$HERE/config.yaml" "$HERE/config.runtime.yaml"
+exec "$LITELLM_BIN" --config "$HERE/config.runtime.yaml" --port "${LITELLM_PORT:-4010}"
