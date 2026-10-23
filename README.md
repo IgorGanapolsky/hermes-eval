@@ -146,3 +146,8 @@ eval/synth_golden.py        cold-start synthetic candidate generation
 .github/workflows/          Tier-2 cloud smoke gate
 Makefile                    proxy / eval / gate / synth / validate-judge / baseline
 ```
+
+## Cloud & model infrastructure
+
+- **Local execution & RTH surveillance**: Apple Silicon local Python runtime (`scripts/local_trading_sentinel.py`).
+- **Batch Walk-Forward, Monte Carlo & Context Memory**: [Tencent Cloud](https://www.tencentcloud.com/) Lighthouse / CVM (`SA5` / `SA9` in `ap-hongkong` & `ap-singapore`) and Tencent Hunyuan (`Hy-Memory-30B-A3B` surgical state-patching pattern and OpenAI-compatible gateway).
