@@ -193,3 +193,52 @@ def test_context_limit_drops_complete_old_tool_cycles_inside_one_user_turn():
     )
     assert len(rendered.model_input.to_ints()) == expected_tokens
     assert rendered.dropped_messages == 2
+
+
+def test_context_limit_truncates_oversized_prompt_middle():
+    messages = [
+        {"role": "system", "content": "p" * 5000},
+        {"role": "user", "content": "u" * 10},
+        {"role": "assistant", "content": "target"},
+    ]
+    rendered = render_with_context_limit(
+        FakeRenderer(),
+        messages,
+        train_on_what="last-assistant",
+        max_tokens=1000,
+    )
+    assert len(rendered.model_input.to_ints()) <= 1000
+    assert rendered.truncated_chars > 0
+    assert rendered.dropped_messages == 0
+
+
+def test_context_limit_rescue_preserves_canonical_error_for_tiny_rows():
+    messages = [
+        {"role": "user", "content": "x" * 600},
+        {"role": "assistant", "content": "y" * 600},
+    ]
+    with pytest.raises(TrainingDataError, match="latest user-to-assistant"):
+        render_with_context_limit(
+            FakeRenderer(),
+            messages,
+            train_on_what="last-assistant",
+            max_tokens=10,
+        )
+
+
+def test_context_limit_spreads_truncation_across_prompts():
+    # Two medium prompts that only fit if BOTH are trimmed (single-prompt
+    # truncation cannot reach the limit while keeping the 512-char floor).
+    messages = [
+        {"role": "system", "content": "p" * 1100},
+        {"role": "user", "content": "q" * 1100},
+        {"role": "assistant", "content": "target"},
+    ]
+    rendered = render_with_context_limit(
+        FakeRenderer(),
+        messages,
+        train_on_what="last-assistant",
+        max_tokens=1200,
+    )
+    assert len(rendered.model_input.to_ints()) <= 1200
+    assert rendered.truncated_chars > 0

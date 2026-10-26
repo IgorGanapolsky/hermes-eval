@@ -70,7 +70,10 @@ QUOTA_MARKER_PATH = os.environ.get(
     "HERMES_ZAI_QUOTA_MARKER",
     os.path.expanduser("~/.hermes/quota/zai-coding-exhausted-until.json"),
 )
-QUOTA_REWRITE_MODEL = os.environ.get("HERMES_ZAI_QUOTA_REWRITE_MODEL", "together-glm")
+# Default MUST be a free/flat route: this remap carries ALL GLM traffic while
+# z.ai is capped, and a non-free route in an auto path repeats the 2026-07-14
+# incident (together-glm stays available as an explicit env opt-in).
+QUOTA_REWRITE_MODEL = os.environ.get("HERMES_ZAI_QUOTA_REWRITE_MODEL", "laguna-free")
 GLM_TEXT_GROUPS = {
     "glm-5.3",
     "glm-coding",
