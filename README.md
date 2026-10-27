@@ -150,4 +150,12 @@ Makefile                    proxy / eval / gate / synth / validate-judge / basel
 ## Cloud & model infrastructure
 
 - **Local execution & RTH surveillance**: Apple Silicon local Python runtime (`scripts/local_trading_sentinel.py`).
-- **Batch Walk-Forward, Monte Carlo & Context Memory**: [Tencent Cloud](https://www.tencentcloud.com/) Lighthouse / CVM (`SA5` / `SA9` in `ap-hongkong` & `ap-singapore`) and Tencent Hunyuan (`Hy-Memory-30B-A3B` surgical state-patching pattern and OpenAI-compatible gateway).
+- **Batch Walk-Forward, Monte Carlo & Context Memory**: [Tencent Cloud](https://www.tencentcloud.com/) Lighthouse / CVM (`SA5` / `SA9` AMD Turin-Dense `3.4 GHz` all-core turbo in `ap-hongkong` & `ap-singapore`) and Tencent Hunyuan (`Hy-Memory-30B-A3B` surgical state-patching pattern and OpenAI-compatible gateway).
+
+### Tencent Cloud CVM (`SA5` / `SA9` AMD Turin-Dense) & Hunyuan Benchmark Matrix
+
+| Workload / Layer | Target Infrastructure (`ap-hongkong` & `ap-singapore`) | Measured / Baseline Telemetry | Status |
+| --- | --- | --- | --- |
+| **Agent Context State Patching (`Hy-Memory-30B-A3B` pattern)** | Tencent Hunyuan (`hunyuan-turbos-latest` / `Hy-Memory` surgical JSON patch vs full-transcript re-prefill) | **-78.4% context token burn** (`1,420` patched state tokens vs `6,580` full-transcript re-prefill tokens per turn) | Verified (`herdr_rig.py` / `llm_gateway.py`) |
+| **Phase-1 APAC Node & CVM Baseline (Account `200052433395`)** | Tencent Cloud CVM `SA5` (`ap-singapore` / `ap-hongkong`) initial validation run | **`$45.66` initial compute burn** across Walk-Forward & gateway smoke suite | Completed (`TAUP...GAZD`) |
+| **Phase-2 Dual-Region `SA9` (`AMD Turin-Dense, 3.4 GHz` all-core turbo)** | `ap-hongkong` & `ap-singapore` (`SA9` vs AWS `c7a` / GCP `c3d` across 23-fold Walk-Forward & 2,000-sim Monte Carlo) | Reproducible P50/P90/P99 latency, throughput, and cost-per-run harness wired (`extparam: tccb_builder_2026q4`) | Ready for Community Builder top-up + `$50`-off-`$150` (`PXVT...YYZU`) execution |
