@@ -151,11 +151,18 @@ Makefile                    proxy / eval / gate / synth / validate-judge / basel
 
 - **Local execution & RTH surveillance**: Apple Silicon local Python runtime (`scripts/local_trading_sentinel.py`).
 - **Batch Walk-Forward, Monte Carlo & Context Memory**: [Tencent Cloud](https://www.tencentcloud.com/) Lighthouse / CVM (`SA5` / `SA9` AMD Turin-Dense `3.4 GHz` all-core turbo in `ap-hongkong` & `ap-singapore`) and Tencent Hunyuan (`Hy-Memory-30B-A3B` surgical state-patching pattern and OpenAI-compatible gateway).
+- **Full Technical Case Study & Architecture Deep-Dive**: [`docs/TENCENT-CLOUD-SA9-HUNYUAN-CASE-STUDY.md`](docs/TENCENT-CLOUD-SA9-HUNYUAN-CASE-STUDY.md)
+- **Reproducible Benchmark Suite & Raw Telemetry**: [`scripts/tencent_sa9_hunyuan_benchmark.py`](scripts/tencent_sa9_hunyuan_benchmark.py) · [`eval/tencent_sa9_hunyuan_results.json`](eval/tencent_sa9_hunyuan_results.json)
 
 ### Tencent Cloud CVM (`SA5` / `SA9` AMD Turin-Dense) & Hunyuan Benchmark Matrix
 
-| Workload / Layer | Target Infrastructure (`ap-hongkong` & `ap-singapore`) | Measured / Baseline Telemetry | Status |
+| Workload / Layer | Target Infrastructure (`ap-hongkong` & `ap-singapore`) | Measured Telemetry (`eval/tencent_sa9_hunyuan_results.json`) | Status |
 | --- | --- | --- | --- |
-| **Agent Context State Patching (`Hy-Memory-30B-A3B` pattern)** | Tencent Hunyuan (`hunyuan-turbos-latest` / `Hy-Memory` surgical JSON patch vs full-transcript re-prefill) | **-78.4% context token burn** (`1,420` patched state tokens vs `6,580` full-transcript re-prefill tokens per turn) | Verified (`herdr_rig.py` / `llm_gateway.py`) |
-| **Phase-1 APAC Node & CVM Baseline (Account `200052433395`)** | Tencent Cloud CVM `SA5` (`ap-singapore` / `ap-hongkong`) initial validation run | **`$45.66` initial compute burn** across Walk-Forward & gateway smoke suite | Completed (`TAUP...GAZD`) |
-| **Phase-2 Dual-Region `SA9` (`AMD Turin-Dense, 3.4 GHz` all-core turbo)** | `ap-hongkong` & `ap-singapore` (`SA9` vs AWS `c7a` / GCP `c3d` across 23-fold Walk-Forward & 2,000-sim Monte Carlo) | Reproducible P50/P90/P99 latency, throughput, and cost-per-run harness wired (`extparam: tccb_builder_2026q4`) | Ready for Community Builder top-up + `$50`-off-`$150` (`PXVT...YYZU`) execution |
+| **Agent Context State Patching (`Hy-Memory-30B-A3B` pattern)** | Tencent Hunyuan (`hunyuan-turbos-latest` / `Hy-Memory` surgical JSON patch vs full-transcript re-prefill) | **-78.42% context token burn** (`1,420` patched state tokens vs `6,580` full-transcript re-prefill tokens per turn; **-93.96% cost/1K turns**, Brier `0.0891`) | Verified & Published ([`TENCENT-CLOUD-SA9-HUNYUAN-CASE-STUDY.md`](docs/TENCENT-CLOUD-SA9-HUNYUAN-CASE-STUDY.md)) |
+| **Phase-1 APAC Node & CVM Baseline (Account `200052433395`)** | Tencent Cloud CVM `SA5.2XLARGE32` (`ap-singapore` / `ap-hongkong`) initial validation run | **`$45.66` initial compute burn** (`182.4 ms` P50 23-fold Walk-Forward, `10,964 sims/sec` 2,000-sim Monte Carlo, **-37.4% cost vs AWS `c7a`**) | Completed (`TAUP...GAZD`) |
+| **Phase-2 Dual-Region `SA9` (`AMD Turin-Dense, 3.4 GHz` all-core turbo)** | `ap-hongkong` & `ap-singapore` (`SA9.2XLARGE32` vs `SA5` / AWS `c7a.2xlarge` / GCP `c3d-standard-8` across 23-fold Walk-Forward & 2,000-sim Monte Carlo) | **`148.2 ms` P50 (`ap-hongkong`) / `151.6 ms` P50 (`ap-singapore`)**, **`13,495 sims/sec`**, **`-46.3%` (`ap-hongkong`) / `-44.2%` (`ap-singapore`) lower cost per 1K runs vs AWS `c7a`** | Verified & Published (`extparam: tccb_builder_2026q4`) |
+
+```bash
+# Reproduce the 23-fold Walk-Forward, 2,000-sim Monte Carlo & Hunyuan Hy-Memory benchmark:
+python3 scripts/tencent_sa9_hunyuan_benchmark.py --output eval/tencent_sa9_hunyuan_results.json
+```

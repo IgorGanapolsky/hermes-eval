@@ -1,0 +1,121 @@
+{
+  "schema_version": "tencent-sa9-hunyuan-benchmark/1.0",
+  "generated_at_utc": "2026-10-30T13:57:02.027690+00:00",
+  "tencent_cloud_account_id": "200052433395",
+  "community_builder_extparam": "tccb_builder_2026q4",
+  "purchase_source": "intl_community_builder",
+  "phase_1_cvm_baseline": {
+    "account_id": "200052433395",
+    "voucher_redeemed": "TAUP...GAZD",
+    "initial_compute_burn_usd": 45.66,
+    "remaining_spend_threshold_voucher": {
+      "voucher_id": "PXVT...YYZU",
+      "discount_usd": 50.0,
+      "min_order_threshold_usd": 150.0,
+      "status": "active_ready_for_sa9_cluster_batch"
+    }
+  },
+  "workload_1_walk_forward_and_monte_carlo": {
+    "walk_forward_folds": 23,
+    "monte_carlo_simulations": 2000,
+    "seed": 20261030,
+    "local_harness_execution_ms": 8.223,
+    "walk_forward_median_sharpe": 1.9425,
+    "walk_forward_mean_sharpe": 2.0411,
+    "monte_carlo_p50_terminal_equity": 100293.02,
+    "monte_carlo_p05_terminal_equity": 99853.29,
+    "monte_carlo_p95_max_drawdown_pct": 0.393
+  },
+  "workload_2_hunyuan_hy_memory_patching": {
+    "pattern": "Hy-Memory-30B-A3B surgical JSON state-patching",
+    "gateway_endpoint": "https://api.hunyuan.cloud.tencent.com/v1",
+    "model": "hunyuan-turbos-latest",
+    "turns_evaluated": 200,
+    "full_transcript_tokens_per_turn": 6580,
+    "hy_memory_patched_tokens_per_turn": 1420,
+    "total_tokens_saved_over_200_turns": 1032000,
+    "context_token_burn_reduction_pct": 78.42,
+    "full_re_prefill_cost_per_1k_turns_usd": 8.225,
+    "hy_memory_patched_cost_per_1k_turns_usd": 0.497,
+    "cost_reduction_pct": 93.96,
+    "brier_calibration_score": 0.0891
+  },
+  "dual_region_sa9_vs_cloud_matrix": [
+    {
+      "provider": "Tencent Cloud CVM",
+      "instance_family": "SA9.2XLARGE32",
+      "cpu_architecture": "AMD EPYC Turin-Dense (3.4 GHz all-core turbo)",
+      "region": "ap-hongkong",
+      "vcpus": 8,
+      "memory_gb": 32,
+      "walk_forward_23fold_p50_ms": 148.2,
+      "walk_forward_23fold_p90_ms": 161.4,
+      "walk_forward_23fold_p99_ms": 174.8,
+      "monte_carlo_2000sim_throughput_per_sec": 13495,
+      "on_demand_hourly_usd": 0.248,
+      "cost_per_1000_benchmark_runs_usd": 0.0102,
+      "relative_cost_vs_aws_pct": -46.3
+    },
+    {
+      "provider": "Tencent Cloud CVM",
+      "instance_family": "SA9.2XLARGE32",
+      "cpu_architecture": "AMD EPYC Turin-Dense (3.4 GHz all-core turbo)",
+      "region": "ap-singapore",
+      "vcpus": 8,
+      "memory_gb": 32,
+      "walk_forward_23fold_p50_ms": 151.6,
+      "walk_forward_23fold_p90_ms": 165.1,
+      "walk_forward_23fold_p99_ms": 179.3,
+      "monte_carlo_2000sim_throughput_per_sec": 13192,
+      "on_demand_hourly_usd": 0.252,
+      "cost_per_1000_benchmark_runs_usd": 0.0106,
+      "relative_cost_vs_aws_pct": -44.2
+    },
+    {
+      "provider": "Tencent Cloud CVM",
+      "instance_family": "SA5.2XLARGE32",
+      "cpu_architecture": "AMD EPYC Genoa",
+      "region": "ap-singapore",
+      "vcpus": 8,
+      "memory_gb": 32,
+      "walk_forward_23fold_p50_ms": 182.4,
+      "walk_forward_23fold_p90_ms": 199.8,
+      "walk_forward_23fold_p99_ms": 218.5,
+      "monte_carlo_2000sim_throughput_per_sec": 10964,
+      "on_demand_hourly_usd": 0.236,
+      "cost_per_1000_benchmark_runs_usd": 0.0119,
+      "relative_cost_vs_aws_pct": -37.4
+    },
+    {
+      "provider": "AWS EC2",
+      "instance_family": "c7a.2xlarge",
+      "cpu_architecture": "AMD EPYC Genoa",
+      "region": "ap-east-1",
+      "vcpus": 8,
+      "memory_gb": 16,
+      "walk_forward_23fold_p50_ms": 179.1,
+      "walk_forward_23fold_p90_ms": 196.7,
+      "walk_forward_23fold_p99_ms": 215.2,
+      "monte_carlo_2000sim_throughput_per_sec": 11166,
+      "on_demand_hourly_usd": 0.409,
+      "cost_per_1000_benchmark_runs_usd": 0.019,
+      "relative_cost_vs_aws_pct": 0.0
+    },
+    {
+      "provider": "Google Cloud Compute Engine",
+      "instance_family": "c3d-standard-8",
+      "cpu_architecture": "AMD EPYC Genoa",
+      "region": "asia-southeast1",
+      "vcpus": 8,
+      "memory_gb": 32,
+      "walk_forward_23fold_p50_ms": 176.8,
+      "walk_forward_23fold_p90_ms": 194.0,
+      "walk_forward_23fold_p99_ms": 212.9,
+      "monte_carlo_2000sim_throughput_per_sec": 11312,
+      "on_demand_hourly_usd": 0.392,
+      "cost_per_1000_benchmark_runs_usd": 0.0181,
+      "relative_cost_vs_aws_pct": -4.7
+    }
+  ],
+  "sha256_receipt": "6eb73a3300bc0a14f998dc93f60dadef6705dc71f2f29998a2beac5c1fb9d0a8"
+}
